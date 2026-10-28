@@ -31,10 +31,14 @@ def _to_png_bytes(img: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-async def generate(photo: Image.Image, extra_prompt: str = "") -> Image.Image:
+async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str = "", dedication: str = "") -> Image.Image:
     if config.DEMO_MODE:
         return _demo_caricature(photo)
     prompt = config.STYLE_PROMPT
+    if scene_prompt:
+        prompt += " Escena: " + scene_prompt
+    if dedication:
+        prompt += f" Dedicatoria que el cliente ha pedido (NO la escribas en la imagen; solo úsala si da pistas como un número de edad o unos colores): '{dedication[:80]}'."
     if extra_prompt:
         prompt += " Detalles del cliente: " + extra_prompt[:300]
     files = {"image[]": ("photo.png", _to_png_bytes(photo), "image/png")}
@@ -81,6 +85,29 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         except OSError:
             continue
     return ImageFont.load_default()
+
+
+def add_dedication(result: Image.Image, text: str) -> Image.Image:
+    """Escribe la dedicatoria en una banda en la parte baja del cuadro (fiable,
+    a diferencia de pedirle a la IA que escriba texto)."""
+    text = " ".join(text.split())[:60]
+    if not text:
+        return result
+    img = result.copy()
+    w, h = img.size
+    size = max(28, w // 16)
+    font = _font(size)
+    d = ImageDraw.Draw(img, "RGBA")
+    while d.textlength(text, font=font) > w * 0.9 and size > 18:
+        size -= 2
+        font = _font(size)
+    tw = d.textlength(text, font=font)
+    pad = size // 2
+    box_h = size + 2 * pad
+    y0 = h - box_h - size
+    d.rounded_rectangle([(w - tw) / 2 - pad * 1.5, y0, (w + tw) / 2 + pad * 1.5, y0 + box_h], radius=box_h // 2, fill=(255, 255, 255, 230))
+    d.text(((w - tw) / 2, y0 + pad - size * 0.1), text, font=font, fill=(30, 30, 30))
+    return img
 
 
 def make_preview(result: Image.Image, max_side: int = 900) -> bytes:

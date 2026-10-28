@@ -12,9 +12,19 @@ def env(name: str, default: str = "") -> str:
 BRAND_NAME = env("BRAND_NAME", "Caricaturea")
 BASE_URL = env("BASE_URL", "http://localhost:8000").rstrip("/")
 CURRENCY = env("CURRENCY", "eur")
-PRICE_CANVAS_CENTS = int(env("PRICE_CANVAS_CENTS", "5900"))   # lienzo 30x40
-PRICE_POSTER_CENTS = int(env("PRICE_POSTER_CENTS", "3900"))   # póster A3
-PRICE_DIGITAL_CENTS = int(env("PRICE_DIGITAL_CENTS", "1900"))  # solo archivo
+DISCOUNT_PCT = int(env("DISCOUNT_PCT", "20"))  # descuento de lanzamiento mostrado (precio tachado)
+PHONE = env("PHONE", "")  # teléfono de contacto en la barra superior (vacío = no se muestra)
+CONTACT_EMAIL = env("CONTACT_EMAIL", "hola@caricaturea.es")
+# Precios finales (ya con el descuento aplicado), en céntimos
+PRICE_CANVAS_20x30_CENTS = int(env("PRICE_CANVAS_20x30_CENTS", "2790"))
+PRICE_CANVAS_30x40_CENTS = int(env("PRICE_CANVAS_30x40_CENTS", "3990"))
+PRICE_CANVAS_40x50_CENTS = int(env("PRICE_CANVAS_40x50_CENTS", "4990"))
+PRICE_POSTER_A4_CENTS = int(env("PRICE_POSTER_A4_CENTS", "1990"))
+PRICE_POSTER_A3_CENTS = int(env("PRICE_POSTER_A3_CENTS", "2290"))
+PRICE_DIGITAL_CENTS = int(env("PRICE_DIGITAL_CENTS", "1790"))
+# Compatibilidad con la primera versión
+PRICE_CANVAS_CENTS = PRICE_CANVAS_30x40_CENTS
+PRICE_POSTER_CENTS = PRICE_POSTER_A3_CENTS
 
 # --- Generación de imagen ----------------------------------------------------
 OPENAI_API_KEY = env("OPENAI_API_KEY")
@@ -38,14 +48,13 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 GELATO_API_KEY = env("GELATO_API_KEY")
 # UIDs de producto de Gelato. Se obtienen en el catálogo de Gelato; estos son
 # ejemplos habituales y hay que confirmarlos en la cuenta antes del primer pedido real.
-GELATO_PRODUCT_CANVAS = env(
-    "GELATO_PRODUCT_CANVAS",
-    "canvas_300x400-mm-12x16-inch_canvas_wood-fsc-slim_4-0_hor",
-)
-GELATO_PRODUCT_POSTER = env(
-    "GELATO_PRODUCT_POSTER",
-    "flat_297x420-mm-12r_200-gsm-80lb-uncoated_4-0_ver",
-)
+GELATO_PRODUCTS = {
+    "canvas_20x30": env("GELATO_PRODUCT_CANVAS_20x30", "canvas_200x300-mm-8x12-inch_canvas_wood-fsc-slim_4-0_ver"),
+    "canvas_30x40": env("GELATO_PRODUCT_CANVAS_30x40", "canvas_300x400-mm-12x16-inch_canvas_wood-fsc-slim_4-0_ver"),
+    "canvas_40x50": env("GELATO_PRODUCT_CANVAS_40x50", "canvas_400x500-mm-16x20-inch_canvas_wood-fsc-slim_4-0_ver"),
+    "poster_a4": env("GELATO_PRODUCT_POSTER_A4", "flat_210x297-mm-8r_200-gsm-80lb-uncoated_4-0_ver"),
+    "poster_a3": env("GELATO_PRODUCT_POSTER_A3", "flat_297x420-mm-12r_200-gsm-80lb-uncoated_4-0_ver"),
+}
 GELATO_ORDERS_URL = env("GELATO_ORDERS_URL", "https://order.gelatoapis.com/v4/orders")
 
 # --- Almacenamiento temporal ----------------------------------------------------

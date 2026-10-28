@@ -6,10 +6,21 @@ import httpx
 from . import config, storage
 
 PRODUCTS = {
-    "canvas": {"name": "Caricatura en lienzo 30x40 cm", "cents": config.PRICE_CANVAS_CENTS, "ships": True},
-    "poster": {"name": "Caricatura en póster A3 (29,7x42 cm)", "cents": config.PRICE_POSTER_CENTS, "ships": True},
+    "canvas_20x30": {"name": "Caricatura en lienzo 20x30 cm", "cents": config.PRICE_CANVAS_20x30_CENTS, "ships": True, "mm": (200, 300), "bleed": 10},
+    "canvas_30x40": {"name": "Caricatura en lienzo 30x40 cm", "cents": config.PRICE_CANVAS_30x40_CENTS, "ships": True, "mm": (300, 400), "bleed": 10},
+    "canvas_40x50": {"name": "Caricatura en lienzo 40x50 cm", "cents": config.PRICE_CANVAS_40x50_CENTS, "ships": True, "mm": (400, 500), "bleed": 10},
+    "poster_a4": {"name": "Caricatura en póster A4 (21x29,7 cm)", "cents": config.PRICE_POSTER_A4_CENTS, "ships": True, "mm": (210, 297), "bleed": 3},
+    "poster_a3": {"name": "Caricatura en póster A3 (29,7x42 cm)", "cents": config.PRICE_POSTER_A3_CENTS, "ships": True, "mm": (297, 420), "bleed": 3},
     "digital": {"name": "Caricatura en archivo digital (alta resolución)", "cents": config.PRICE_DIGITAL_CENTS, "ships": False},
+    # compatibilidad con la primera versión
+    "canvas": {"name": "Caricatura en lienzo 30x40 cm", "cents": config.PRICE_CANVAS_30x40_CENTS, "ships": True, "mm": (300, 400), "bleed": 10, "alias": "canvas_30x40"},
+    "poster": {"name": "Caricatura en póster A3 (29,7x42 cm)", "cents": config.PRICE_POSTER_A3_CENTS, "ships": True, "mm": (297, 420), "bleed": 3, "alias": "poster_a3"},
 }
+
+
+def gelato_uid(product: str) -> str:
+    key = PRODUCTS[product].get("alias", product)
+    return config.GELATO_PRODUCTS.get(key, "")
 
 
 def stripe_client():
@@ -100,7 +111,7 @@ async def fulfil(job_id: str) -> dict:
         return storage.update_meta(job_id, status="delivered")
     if not config.PRINT_ENABLED:
         return storage.update_meta(job_id, status="paid_pending_print", gelato_order="demo")
-    uid = config.GELATO_PRODUCT_CANVAS if product == "canvas" else config.GELATO_PRODUCT_POSTER
+    uid = gelato_uid(product)
     ship = meta.get("shipping") or {}
     payload = {
         "orderType": "order",

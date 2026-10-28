@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
-from . import config, fulfilment, imaging, storage
+from . import config, fulfilment, imaging, scenes, storage
 
 log = logging.getLogger("caricaturas")
 logging.basicConfig(level=logging.INFO)
@@ -42,19 +42,55 @@ async def _startup():
              config.DEMO_MODE, config.PAYMENTS_ENABLED, config.PRINT_ENABLED, n)
 
 
-def _page(name: str) -> HTMLResponse:
+def _eur(cents: int) -> str:
+    return f"{cents/100:.2f}".replace(".", ",") + " €"
+
+
+def _page(name: str, **extra: str) -> HTMLResponse:
     html = (STATIC / name).read_text(encoding="utf-8")
-    html = html.replace("{{BRAND}}", config.BRAND_NAME)
-    html = html.replace("{{PRICE_CANVAS}}", f"{config.PRICE_CANVAS_CENTS/100:.0f}")
-    html = html.replace("{{PRICE_POSTER}}", f"{config.PRICE_POSTER_CENTS/100:.0f}")
-    html = html.replace("{{PRICE_DIGITAL}}", f"{config.PRICE_DIGITAL_CENTS/100:.0f}")
-    html = html.replace("{{DEMO}}", "true" if config.DEMO_MODE else "false")
+    base = config.PRICE_CANVAS_20x30_CENTS
+    before = round(base / (1 - config.DISCOUNT_PCT / 100)) if config.DISCOUNT_PCT else base
+    repl = {
+        "BRAND": config.BRAND_NAME,
+        "PHONE": config.PHONE,
+        "EMAIL": config.CONTACT_EMAIL,
+        "DISCOUNT": str(config.DISCOUNT_PCT),
+        "PRICE_FROM": _eur(base),
+        "PRICE_BEFORE": _eur(before),
+        "PRICE_CANVAS_20x30": _eur(config.PRICE_CANVAS_20x30_CENTS),
+        "PRICE_CANVAS_30x40": _eur(config.PRICE_CANVAS_30x40_CENTS),
+        "PRICE_CANVAS_40x50": _eur(config.PRICE_CANVAS_40x50_CENTS),
+        "PRICE_POSTER_A4": _eur(config.PRICE_POSTER_A4_CENTS),
+        "PRICE_POSTER_A3": _eur(config.PRICE_POSTER_A3_CENTS),
+        "PRICE_DIGITAL": _eur(config.PRICE_DIGITAL_CENTS),
+        "DEMO": "true" if config.DEMO_MODE else "false",
+        "CATEGORY": "",
+        "PAGE_TITLE": f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo",
+        "H1": "Caricatura personalizada a partir de una foto",
+        "INTRO": "Tu idea. Tu foto. Un regalo personal. Elige la escena, sube la foto y mira tu caricatura antes de pagar.",
+    }
+    repl.update(extra)
+    for k, v in repl.items():
+        html = html.replace("{{" + k + "}}", v)
     return HTMLResponse(html)
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return _page("index.html")
+
+
+@app.get("/regalos/{category}", response_class=HTMLResponse)
+async def category_page(category: str):
+    cat = scenes.CATEGORIES.get(category)
+    if not cat:
+        raise HTTPException(404)
+    return _page("index.html", CATEGORY=category, PAGE_TITLE=f"{cat['title']} · {config.BRAND_NAME}", H1=cat["title"], INTRO=cat["intro"])
+
+
+@app.get("/api/scenes")
+async def api_scenes(category: str = ""):
+    return {"categories": [{"slug": k, **v} for k, v in scenes.CATEGORIES.items()], "scenes": scenes.scenes_for(category or None)}
 
 
 @app.get("/gracias", response_class=HTMLResponse)
@@ -85,7 +121,9 @@ async def api_config():
 
 
 @app.post("/api/generate")
-async def api_generate(photo: UploadFile = File(...), notes: str = Form("")):
+async def api_generate(photo: UploadFile = File(...), notes: str = Form(""), scene: str = Form("clasica"), dedication: str = Form("")):
+    scene_data = scenes.SCENE_BY_ID.get(scene) or scenes.SCENE_BY_ID["clasica"]
+    dedication = " ".join(dedication.split())[:60]
     storage.cleanup()
     data = await photo.read()
     if len(data) > MAX_UPLOAD_BYTES:
@@ -97,10 +135,12 @@ async def api_generate(photo: UploadFile = File(...), notes: str = Form("")):
     if min(img.size) < 400:
         raise HTTPException(400, "La foto es muy pequeña: necesitamos al menos 400 px de lado para ver bien la cara.")
     job_id, d = storage.create_job()
-    storage.update_meta(job_id, status="generating", notes=notes[:300])
+    storage.update_meta(job_id, status="generating", notes=notes[:300], scene=scene_data["id"], dedication=dedication)
     try:
         async with _sem:
-            result = await imaging.generate(img, notes)
+            result = await imaging.generate(img, notes, scene_data["prompt"], dedication)
+        if dedication:
+            result = imaging.add_dedication(result, dedication)
     except Exception as e:  # noqa: BLE001
         log.exception("generación falló")
         storage.update_meta(job_id, status="error", error=str(e)[:300])
@@ -185,10 +225,9 @@ async def api_download(job_id: str):
 async def api_print_file(job_id: str):
     p = _paid_result(job_id)
     meta = storage.read_meta(job_id) or {}
-    if meta.get("product") == "poster":
-        data = imaging.prepare_print_file(Image.open(p), 297, 420, 3)
-    else:
-        data = imaging.prepare_print_file(Image.open(p), 300, 400, 10)
+    prod = fulfilment.PRODUCTS.get(meta.get("product") or "canvas_30x40") or fulfilment.PRODUCTS["canvas_30x40"]
+    mm = prod.get("mm", (300, 400))
+    data = imaging.prepare_print_file(Image.open(p), mm[0], mm[1], prod.get("bleed", 10))
     return Response(data, media_type="image/png")
 
 

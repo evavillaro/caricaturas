@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{BRAND}} · ¡Gracias!</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top"><a class="logo" href="/">{{BRAND}}</a></header>
+<main>
+<section class="thanks">
+  <h1 id="title">Comprobando tu pago…</h1>
+  <img id="img" alt="Tu caricatura" hidden>
+  <p id="msg"></p>
+  <p id="actions"></p>
+  <p class="hint">Guarda esta página: el archivo está disponible 14 días. Si tienes cualquier problema, escríbenos con el número de pedido <code id="job"></code>.</p>
+</section>
+</main>
+<footer><p>{{BRAND}} · Comartinvi S.L.</p></footer>
+<script>
+const q = new URLSearchParams(location.search); const job = q.get('job');
+document.getElementById('job').textContent = job;
+(async () => {
+  const r = await fetch('/api/status/' + job); const s = await r.json();
+  const title = document.getElementById('title'), msg = document.getElementById('msg'), act = document.getElementById('actions'), img = document.getElementById('img');
+  if (!s.paid) { title.textContent = 'No encontramos el pago'; msg.textContent = 'Si has pagado, espera un minuto y recarga la página. Si no, vuelve atrás y prueba de nuevo.'; return; }
+  img.src = '/api/preview/' + job + '.jpg'; img.hidden = false;
+  if (s.product === 'digital') {
+    title.textContent = '¡Listo! Aquí tienes tu caricatura';
+    msg.textContent = 'Descárgala en alta resolución (PNG, 300 dpi), sin marca de agua.';
+    act.innerHTML = '<a class="btn btn-primary" href="/api/download/' + job + '.png">Descargar mi caricatura</a>';
+  } else {
+    title.textContent = '¡Gracias! Tu caricatura está en producción';
+    msg.textContent = (s.product === 'canvas' ? 'Lienzo 30x40 cm' : 'Póster A3') + ': se imprime en 1-2 días laborables y llega a casa en 2-5 más. Recibirás el recibo por email.' + (s.gelato_order === 'demo' ? ' (Modo demo: no se ha enviado a imprenta.)' : '');
+    act.innerHTML = '<a class="btn btn-primary" href="/api/download/' + job + '.png">Descargar también el archivo</a>';
+  }
+})();
+</script>
+</body>
+</html>

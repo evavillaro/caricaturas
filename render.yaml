@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: caricaturas
+    runtime: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /salud
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: BRAND_NAME
+        value: Caricaturea
+      - key: BASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: GELATO_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true

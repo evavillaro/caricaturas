@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{BRAND}} · Tu caricatura en lienzo a partir de una foto</title>
+<meta name="description" content="Sube una foto, mira tu caricatura al momento y recíbela impresa en lienzo. El regalo que nadie se espera.">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/">{{BRAND}}</a>
+  <nav><a href="#como">Cómo funciona</a><a href="#precios">Precios</a><a href="#faq">Preguntas</a></nav>
+</header>
+
+<main>
+<section class="hero">
+  <div class="hero-text">
+    <p class="kicker">Regalo personalizado · listo en 2 minutos</p>
+    <h1>Tu caricatura en lienzo, a partir de una foto</h1>
+    <p class="lead">Sube una foto, mira tu caricatura al momento y, si te gusta, la imprimimos en lienzo y te la enviamos a casa. Solo pagas si te convence.</p>
+    <a class="btn btn-primary" href="#crear">Crear mi caricatura</a>
+    <ul class="trust">
+      <li>Ves el resultado antes de pagar</li>
+      <li>Envío en 4-7 días laborables</li>
+      <li>No guardamos tu foto</li>
+    </ul>
+  </div>
+  <div class="hero-art">
+    <div class="frame"><div class="placeholder">Aquí irá el ejemplo antes/después</div></div>
+  </div>
+</section>
+
+<section id="crear" class="create">
+  <h2>Crea tu caricatura</h2>
+  <div class="steps-ind"><span class="on" data-step="1">1 Foto</span><span data-step="2">2 Caricatura</span><span data-step="3">3 Formato y pago</span></div>
+
+  <div class="panel" id="panel-upload">
+    <form id="form" enctype="multipart/form-data">
+      <label class="drop" id="drop">
+        <input type="file" id="photo" name="photo" accept="image/*" required>
+        <div class="drop-inner">
+          <strong>Arrastra una foto o toca para elegir</strong>
+          <span>Mejor de frente, con buena luz y la cara grande. Vale para 1 a 4 personas o tu mascota.</span>
+        </div>
+        <img id="thumb" alt="" hidden>
+      </label>
+      <label class="notes">¿Algún detalle? (opcional)
+        <input type="text" name="notes" id="notes" maxlength="200" placeholder="Ej.: que lleve la camiseta del Barça, que salga con su perro">
+      </label>
+      <button class="btn btn-primary" type="submit" id="go">Generar caricatura</button>
+      <p class="hint">Tarda entre 30 y 90 segundos. La foto se usa solo para crear la caricatura y no se guarda.</p>
+    </form>
+    <div id="loading" hidden>
+      <div class="spinner"></div>
+      <p id="loading-text">Dibujando tu caricatura…</p>
+    </div>
+    <p class="error" id="error" hidden></p>
+  </div>
+
+  <div class="panel" id="panel-preview" hidden>
+    <div class="preview-grid">
+      <div class="preview-img"><img id="preview" alt="Tu caricatura"></div>
+      <div class="preview-side">
+        <h3>¿Te gusta?</h3>
+        <p>La marca de agua desaparece al pagar. Si no te convence, sube otra foto; no se cobra nada.</p>
+        <div class="options" id="options">
+          <label class="opt"><input type="radio" name="product" value="canvas" checked>
+            <span><strong>Lienzo 30x40 cm</strong><small>Impreso en lienzo con bastidor de madera, listo para colgar. Envío incluido en España.</small></span><b>{{PRICE_CANVAS}} €</b></label>
+          <label class="opt"><input type="radio" name="product" value="poster">
+            <span><strong>Póster A3</strong><small>Papel mate 200 g, sin marco. Envío incluido en España.</small></span><b>{{PRICE_POSTER}} €</b></label>
+          <label class="opt"><input type="radio" name="product" value="digital">
+            <span><strong>Solo archivo digital</strong><small>PNG en alta resolución para imprimir donde quieras o compartir.</small></span><b>{{PRICE_DIGITAL}} €</b></label>
+        </div>
+        <button class="btn btn-primary" id="pay">Pagar y pedir</button>
+        <button class="btn btn-ghost" id="retry">Probar con otra foto</button>
+        <p class="hint">Pago seguro con tarjeta. Si al recibirlo no se parece, lo rehacemos una vez gratis.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="como" class="how">
+  <h2>Cómo funciona</h2>
+  <div class="cols">
+    <div><span class="num">1</span><h3>Sube una foto</h3><p>Una foto de frente, con luz. Puede ser de una persona, una pareja, la familia o tu mascota.</p></div>
+    <div><span class="num">2</span><h3>Mira tu caricatura</h3><p>En menos de dos minutos la tienes en pantalla. ¿No te gusta? Prueba con otra foto gratis.</p></div>
+    <div><span class="num">3</span><h3>Elige formato y paga</h3><p>Lienzo, póster o archivo digital. Lo imprimimos en España y llega a casa en 4-7 días laborables.</p></div>
+  </div>
+</section>
+
+<section id="precios" class="prices">
+  <h2>Precios</h2>
+  <div class="cols">
+    <div class="price"><h3>Lienzo 30x40</h3><p class="big">{{PRICE_CANVAS}} €</p><p>Lienzo con bastidor de madera, listo para colgar. Envío incluido en España.</p></div>
+    <div class="price"><h3>Póster A3</h3><p class="big">{{PRICE_POSTER}} €</p><p>Papel mate de 200 g. Envío incluido en España.</p></div>
+    <div class="price"><h3>Archivo digital</h3><p class="big">{{PRICE_DIGITAL}} €</p><p>PNG a 300 dpi, descarga inmediata.</p></div>
+  </div>
+</section>
+
+<section id="faq" class="faq">
+  <h2>Preguntas frecuentes</h2>
+  <details><summary>¿Y si no se parece?</summary><p>Lo ves antes de pagar, así que solo pagas si te convence. Si al recibir el lienzo crees que no se parece, lo rehacemos una vez gratis con otra foto. El archivo digital no admite devolución una vez descargado.</p></details>
+  <details><summary>¿Qué foto funciona mejor?</summary><p>De frente, con la cara grande y bien iluminada, sin gafas de sol ni gorra. Para grupos, que todos miren a cámara y estén a la misma distancia.</p></details>
+  <details><summary>¿Cuánto tarda en llegar?</summary><p>Se imprime en 1-2 días laborables y el envío en España tarda 2-5 más. Para Navidad, pide antes del 15 de diciembre.</p></details>
+  <details><summary>¿Qué hacéis con mi foto?</summary><p>Solo la usamos para crear la caricatura y no la guardamos. La caricatura sin pagar se borra a las pocas horas; la pagada, a los 14 días, cuando ya la has recibido.</p></details>
+  <details><summary>¿Puedo cambiar algo después de pagar?</summary><p>No: lo que ves es lo que se imprime. Por eso te lo enseñamos antes. Si quieres otro resultado, sube otra foto o añade un detalle en el cuadro de texto antes de generar.</p></details>
+</section>
+</main>
+
+<footer>
+  <p>{{BRAND}} · Comartinvi S.L. · <a href="/static/legal.html">Aviso legal, privacidad y envíos</a> · hola@ejemplo.com</p>
+</footer>
+
+<script>
+const DEMO = {{DEMO}};
+const $ = s => document.querySelector(s);
+const form = $('#form'), photo = $('#photo'), thumb = $('#thumb'), drop = $('#drop');
+const loading = $('#loading'), errorBox = $('#error');
+let jobId = null;
+
+function setStep(n){ document.querySelectorAll('.steps-ind span').forEach(s=>s.classList.toggle('on', +s.dataset.step<=n)); }
+function showError(msg){ errorBox.textContent = msg; errorBox.hidden = false; }
+
+photo.addEventListener('change', () => {
+  const f = photo.files[0]; if(!f) return;
+  thumb.src = URL.createObjectURL(f); thumb.hidden = false; drop.classList.add('has');
+});
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { photo.files = e.dataTransfer.files; photo.dispatchEvent(new Event('change')); });
+
+const msgs = ['Dibujando tu caricatura…','Exagerando lo justo…','Eligiendo el color de fondo…','Casi está…'];
+form.addEventListener('submit', async e => {
+  e.preventDefault(); errorBox.hidden = true;
+  if(!photo.files[0]) return showError('Elige una foto primero.');
+  form.hidden = true; loading.hidden = false; let i = 0;
+  const t = setInterval(()=>{ i=(i+1)%msgs.length; $('#loading-text').textContent = msgs[i]; }, 12000);
+  try {
+    const fd = new FormData(form);
+    const r = await fetch('/api/generate', { method:'POST', body: fd });
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.detail || 'Error al generar');
+    jobId = data.job_id;
+    $('#preview').src = data.preview_url + '?t=' + Date.now();
+    $('#panel-upload').hidden = true; $('#panel-preview').hidden = false; setStep(2);
+    $('#panel-preview').scrollIntoView({behavior:'smooth'});
+  } catch(err) {
+    showError(err.message); form.hidden = false;
+  } finally { clearInterval(t); loading.hidden = true; }
+});
+
+$('#retry').addEventListener('click', () => {
+  jobId = null; photo.value=''; thumb.hidden = true; drop.classList.remove('has');
+  $('#panel-preview').hidden = true; $('#panel-upload').hidden = false; form.hidden = false; setStep(1);
+  $('#crear').scrollIntoView({behavior:'smooth'});
+});
+
+$('#pay').addEventListener('click', async () => {
+  const product = document.querySelector('input[name=product]:checked').value;
+  $('#pay').disabled = true; $('#pay').textContent = 'Un momento…'; setStep(3);
+  try {
+    const r = await fetch('/api/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ job_id: jobId, product }) });
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.detail || 'Error al iniciar el pago');
+    location.href = data.url;
+  } catch(err) { showError(err.message); $('#pay').disabled = false; $('#pay').textContent = 'Pagar y pedir'; }
+});
+
+if (DEMO) { const b = document.createElement('div'); b.className='demo-banner'; b.textContent='Modo demo: caricatura simulada y pago simulado. Añade OPENAI_API_KEY y STRIPE_SECRET_KEY para activarlo.'; document.body.prepend(b); }
+</script>
+</body>
+</html>

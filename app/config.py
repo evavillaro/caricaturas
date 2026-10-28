@@ -15,16 +15,31 @@ CURRENCY = env("CURRENCY", "eur")
 DISCOUNT_PCT = int(env("DISCOUNT_PCT", "20"))  # descuento de lanzamiento mostrado (precio tachado)
 PHONE = env("PHONE", "")  # teléfono de contacto en la barra superior (vacío = no se muestra)
 CONTACT_EMAIL = env("CONTACT_EMAIL", "hola@caricaturea.es")
-# Precios finales (ya con el descuento aplicado), en céntimos
-PRICE_CANVAS_20x30_CENTS = int(env("PRICE_CANVAS_20x30_CENTS", "2790"))
-PRICE_CANVAS_30x40_CENTS = int(env("PRICE_CANVAS_30x40_CENTS", "3990"))
-PRICE_CANVAS_40x50_CENTS = int(env("PRICE_CANVAS_40x50_CENTS", "4990"))
-PRICE_POSTER_A4_CENTS = int(env("PRICE_POSTER_A4_CENTS", "1990"))
-PRICE_POSTER_A3_CENTS = int(env("PRICE_POSTER_A3_CENTS", "2290"))
-PRICE_DIGITAL_CENTS = int(env("PRICE_DIGITAL_CENTS", "1790"))
-# Compatibilidad con la primera versión
+# Precios finales (ya con el descuento aplicado), en céntimos. Referencia: la tienda
+# polaca cobra 109,60 zł el archivo, desde 158 zł el lienzo y desde 153 zł el póster
+# (1 zł ≈ 0,235 €). Cada uno se puede cambiar con su variable de entorno.
+PRICES_CENTS = {
+    "digital": int(env("PRICE_DIGITAL_CENTS", "2590")),
+    "canvas_20x30": int(env("PRICE_CANVAS_20x30_CENTS", "3790")),
+    "canvas_30x40": int(env("PRICE_CANVAS_30x40_CENTS", "4790")),
+    "canvas_40x50": int(env("PRICE_CANVAS_40x50_CENTS", "5990")),
+    "canvas_50x70": int(env("PRICE_CANVAS_50x70_CENTS", "7990")),
+    "canvas_60x90": int(env("PRICE_CANVAS_60x90_CENTS", "10990")),
+    "canvas_80x120": int(env("PRICE_CANVAS_80x120_CENTS", "15990")),
+    "poster_a4": int(env("PRICE_POSTER_A4_CENTS", "3590")),
+    "poster_a3": int(env("PRICE_POSTER_A3_CENTS", "3990")),
+    "poster_a2": int(env("PRICE_POSTER_A2_CENTS", "4990")),
+    "poster_a1": int(env("PRICE_POSTER_A1_CENTS", "6990")),
+}
+PRICE_DIGITAL_CENTS = PRICES_CENTS["digital"]
+PRICE_CANVAS_20x30_CENTS = PRICES_CENTS["canvas_20x30"]
+PRICE_CANVAS_30x40_CENTS = PRICES_CENTS["canvas_30x40"]
+PRICE_CANVAS_40x50_CENTS = PRICES_CENTS["canvas_40x50"]
+PRICE_POSTER_A4_CENTS = PRICES_CENTS["poster_a4"]
+PRICE_POSTER_A3_CENTS = PRICES_CENTS["poster_a3"]
 PRICE_CANVAS_CENTS = PRICE_CANVAS_30x40_CENTS
 PRICE_POSTER_CENTS = PRICE_POSTER_A3_CENTS
+WHATSAPP = env("WHATSAPP", "")  # número con prefijo, p. ej. 34600000000; vacío = no se muestra
 
 # --- Generación de imagen ----------------------------------------------------
 OPENAI_API_KEY = env("OPENAI_API_KEY")
@@ -54,8 +69,13 @@ GELATO_PRODUCTS = {
     "canvas_20x30": env("GELATO_PRODUCT_CANVAS_20x30", "canvas_200x300-mm-8x12-inch_canvas_wood-fsc-slim_4-0_ver"),
     "canvas_30x40": env("GELATO_PRODUCT_CANVAS_30x40", "canvas_300x400-mm-12x16-inch_canvas_wood-fsc-slim_4-0_ver"),
     "canvas_40x50": env("GELATO_PRODUCT_CANVAS_40x50", "canvas_400x500-mm-16x20-inch_canvas_wood-fsc-slim_4-0_ver"),
+    "canvas_50x70": env("GELATO_PRODUCT_CANVAS_50x70", "canvas_500x700-mm-20x28-inch_canvas_wood-fsc-slim_4-0_ver"),
+    "canvas_60x90": env("GELATO_PRODUCT_CANVAS_60x90", "canvas_600x900-mm-24x36-inch_canvas_wood-fsc-slim_4-0_ver"),
+    "canvas_80x120": env("GELATO_PRODUCT_CANVAS_80x120", "canvas_800x1200-mm-32x48-inch_canvas_wood-fsc-slim_4-0_ver"),
     "poster_a4": env("GELATO_PRODUCT_POSTER_A4", "flat_210x297-mm-8r_200-gsm-80lb-uncoated_4-0_ver"),
     "poster_a3": env("GELATO_PRODUCT_POSTER_A3", "flat_297x420-mm-12r_200-gsm-80lb-uncoated_4-0_ver"),
+    "poster_a2": env("GELATO_PRODUCT_POSTER_A2", "flat_420x594-mm-16r_200-gsm-80lb-uncoated_4-0_ver"),
+    "poster_a1": env("GELATO_PRODUCT_POSTER_A1", "flat_594x841-mm-23r_200-gsm-80lb-uncoated_4-0_ver"),
 }
 GELATO_ORDERS_URL = env("GELATO_ORDERS_URL", "https://order.gelatoapis.com/v4/orders")
 

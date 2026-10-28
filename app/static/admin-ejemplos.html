@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ejemplos del catálogo</title><link rel="stylesheet" href="/static/style.css">
+<style>.ex{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}.ex figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}.ex img{width:100%;border-radius:8px}.ex figcaption{font-size:.85rem;margin-top:6px}.ex .pending{aspect-ratio:3/4;display:grid;place-items:center;color:var(--muted);background:#f5f0e8;border-radius:8px}@media(max-width:820px){.ex{grid-template-columns:1fr 1fr}}</style>
+</head>
+<body>
+<header class="top"><a class="logo" href="/">Inicio</a></header>
+<main>
+<section>
+<h2>Generar ejemplos del catálogo</h2>
+<div class="panel">
+  <p>Sube una foto (o varias, una por fila del catálogo: pareja, familia, mascota…) y se genera una caricatura por escena. Las escenas que requieren pareja o mascota salen mejor con una foto adecuada: elige abajo qué escenas generar con esta foto.</p>
+  <form id="f">
+    <input type="hidden" id="token" value="">
+    <label class="drop" id="drop" style="min-height:120px"><input type="file" id="photo" accept="image/*" required><div class="drop-inner"><strong>Elige la foto</strong></div><img id="thumb" hidden style="max-height:200px"></label>
+    <div id="scenes" style="margin:14px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:6px"></div>
+    <label class="notes">Dedicatoria de ejemplo (opcional) <input id="ded" type="text" maxlength="60" placeholder="¡Felices 50, Carlos!"></label>
+    <button class="btn btn-primary" type="submit" id="go">Generar seleccionadas</button>
+    <a class="btn btn-ghost" id="zip" href="#" hidden>Descargar zip</a>
+    <p class="hint">Cada imagen cuesta unos 0,20 €. Se generan de una en una; 20 escenas tardan unos 15-20 minutos. No cierres la pestaña.</p>
+  </form>
+  <p class="error" id="err" hidden></p>
+</div>
+<div class="ex" id="ex"></div>
+</section>
+</main>
+<script>
+const $=s=>document.querySelector(s); const token = new URLSearchParams(location.search).get('token')||''; $('#token').value=token;
+let scenes=[];
+fetch('/api/scenes').then(r=>r.json()).then(d=>{scenes=d.scenes; $('#scenes').innerHTML=scenes.map(s=>`<label><input type="checkbox" name="s" value="${s.id}" checked> ${s.name}</label>`).join('');});
+$('#photo').addEventListener('change',()=>{const f=$('#photo').files[0]; if(!f)return; $('#thumb').src=URL.createObjectURL(f); $('#thumb').hidden=false; $('#drop').classList.add('has');});
+$('#f').addEventListener('submit', async e=>{
+  e.preventDefault(); $('#err').hidden=true; const f=$('#photo').files[0]; if(!f) return;
+  const sel=[...document.querySelectorAll('input[name=s]:checked')].map(i=>i.value);
+  $('#go').disabled=true; const ex=$('#ex'); ex.innerHTML=sel.map(id=>`<figure id="fig-${id}"><div class="pending">${scenes.find(s=>s.id===id).name}…</div><figcaption>${id}</figcaption></figure>`).join('');
+  const done=[];
+  for(const id of sel){
+    const fd=new FormData(); fd.append('photo',f); fd.append('scene',id); fd.append('dedication',$('#ded').value); fd.append('token',token);
+    try{ const r=await fetch('/admin/example',{method:'POST',body:fd}); const d=await r.json(); if(!r.ok) throw new Error(d.detail||'error');
+      $('#fig-'+id).querySelector('.pending').outerHTML=`<img src="${d.url}">`; done.push(d.file);
+    }catch(err){ $('#fig-'+id).querySelector('.pending').textContent='Error: '+err.message; }
+  }
+  $('#go').disabled=false;
+  if(done.length){ $('#zip').href='/admin/examples.zip?token='+token; $('#zip').hidden=false; }
+});
+</script>
+</body>
+</html>

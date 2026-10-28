@@ -28,6 +28,7 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title=config.BRAND_NAME)
 STATIC = Path(__file__).parent / "static"
+EXAMPLES = config.DATA_DIR / "examples"
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
@@ -64,7 +65,9 @@ def _page(name: str, **extra: str) -> HTMLResponse:
         "PRICE_POSTER_A3": _eur(config.PRICE_POSTER_A3_CENTS),
         "PRICE_DIGITAL": _eur(config.PRICE_DIGITAL_CENTS),
         "DEMO": "true" if config.DEMO_MODE else "false",
+        "WHATSAPP": config.WHATSAPP,
         "CATEGORY": "",
+        "SCENE_ID": "", "SCENE_NAME": "", "SCENE_DESC": "",
         "PAGE_TITLE": f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo",
         "H1": "Caricatura personalizada a partir de una foto",
         "INTRO": "Tu idea. Tu foto. Un regalo personal. Elige la escena, sube la foto y mira tu caricatura antes de pagar.",
@@ -88,9 +91,72 @@ async def category_page(category: str):
     return _page("index.html", CATEGORY=category, PAGE_TITLE=f"{cat['title']} · {config.BRAND_NAME}", H1=cat["title"], INTRO=cat["intro"])
 
 
+@app.get("/p/{scene_id}", response_class=HTMLResponse)
+async def product_page(scene_id: str):
+    s = scenes.SCENE_BY_ID.get(scene_id)
+    if not s:
+        raise HTTPException(404)
+    return _page("producto.html", SCENE_ID=s["id"], SCENE_NAME=s["name"], SCENE_DESC=s["desc"], PAGE_TITLE=f"{s['name']} · {config.BRAND_NAME}")
+
+
 @app.get("/api/scenes")
 async def api_scenes(category: str = ""):
-    return {"categories": [{"slug": k, **v} for k, v in scenes.CATEGORIES.items()], "scenes": scenes.scenes_for(category or None)}
+    return {
+        "groups": [{"slug": k, "name": v} for k, v in scenes.GROUPS],
+        "categories": [{"slug": k, **v} for k, v in scenes.CATEGORIES.items()],
+        "scenes": scenes.scenes_for(category or None),
+        "products": fulfilment.product_list(),
+        "discount": config.DISCOUNT_PCT,
+        "whatsapp": config.WHATSAPP,
+    }
+
+
+@app.get("/api/example/{scene_id}.jpg")
+async def api_example(scene_id: str):
+    """Imagen de ejemplo de una escena (si se ha generado desde /admin/ejemplos)."""
+    p = EXAMPLES / f"{scene_id}.jpg"
+    if not p.exists():
+        p = STATIC / "examples" / f"{scene_id}.jpg"
+    if not p.exists():
+        raise HTTPException(404)
+    return FileResponse(p, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/admin/ejemplos", response_class=HTMLResponse)
+async def admin_examples_page(token: str = ""):
+    if not config.ADMIN_TOKEN or token != config.ADMIN_TOKEN:
+        raise HTTPException(403)
+    return _page("admin-ejemplos.html")
+
+
+@app.post("/admin/example")
+async def admin_example(photo: UploadFile = File(...), scene: str = Form(...), dedication: str = Form(""), token: str = Form("")):
+    if not config.ADMIN_TOKEN or token != config.ADMIN_TOKEN:
+        raise HTTPException(403)
+    s = scenes.SCENE_BY_ID.get(scene)
+    if not s:
+        raise HTTPException(404)
+    img = imaging.load_and_normalize(await photo.read())
+    async with _sem:
+        result = await imaging.generate(img, "", s["prompt"], dedication)
+    if dedication:
+        result = imaging.add_dedication(result, dedication)
+    EXAMPLES.mkdir(parents=True, exist_ok=True)
+    result.save(EXAMPLES / f"{scene}.png", format="PNG")
+    web = result.copy(); web.thumbnail((1200, 1200)); web.save(EXAMPLES / f"{scene}.jpg", format="JPEG", quality=88)
+    return {"url": f"/api/example/{scene}.jpg?t={int(asyncio.get_event_loop().time())}", "file": f"{scene}.png"}
+
+
+@app.get("/admin/examples.zip")
+async def admin_examples_zip(token: str = ""):
+    if not config.ADMIN_TOKEN or token != config.ADMIN_TOKEN:
+        raise HTTPException(403)
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in sorted(EXAMPLES.glob("*")) if EXAMPLES.exists() else []:
+            z.write(p, p.name)
+    return Response(buf.getvalue(), media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="ejemplos.zip"'})
 
 
 @app.get("/gracias", response_class=HTMLResponse)
@@ -195,8 +261,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             event = json.loads(payload)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(400, f"firma inválida: {e}")
+    event = fulfilment._as_dict(event)
     if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
+        session = fulfilment._as_dict(event["data"]["object"])
         job_id = session.get("client_reference_id") or (session.get("metadata") or {}).get("job_id")
         if job_id and storage.read_meta(job_id):
             fulfilment.mark_paid(job_id, session)

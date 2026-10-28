@@ -5,17 +5,27 @@ import httpx
 
 from . import config, storage
 
+P = config.PRICES_CENTS
 PRODUCTS = {
-    "canvas_20x30": {"name": "Caricatura en lienzo 20x30 cm", "cents": config.PRICE_CANVAS_20x30_CENTS, "ships": True, "mm": (200, 300), "bleed": 10},
-    "canvas_30x40": {"name": "Caricatura en lienzo 30x40 cm", "cents": config.PRICE_CANVAS_30x40_CENTS, "ships": True, "mm": (300, 400), "bleed": 10},
-    "canvas_40x50": {"name": "Caricatura en lienzo 40x50 cm", "cents": config.PRICE_CANVAS_40x50_CENTS, "ships": True, "mm": (400, 500), "bleed": 10},
-    "poster_a4": {"name": "Caricatura en póster A4 (21x29,7 cm)", "cents": config.PRICE_POSTER_A4_CENTS, "ships": True, "mm": (210, 297), "bleed": 3},
-    "poster_a3": {"name": "Caricatura en póster A3 (29,7x42 cm)", "cents": config.PRICE_POSTER_A3_CENTS, "ships": True, "mm": (297, 420), "bleed": 3},
-    "digital": {"name": "Caricatura en archivo digital (alta resolución)", "cents": config.PRICE_DIGITAL_CENTS, "ships": False},
+    "digital": {"name": "Caricatura en archivo digital (alta resolución)", "cents": P["digital"], "ships": False, "type": "digital", "size": "Archivo"},
+    "canvas_20x30": {"name": "Caricatura en lienzo 20x30 cm", "cents": P["canvas_20x30"], "ships": True, "mm": (200, 300), "bleed": 10, "type": "canvas", "size": "20x30 cm"},
+    "canvas_30x40": {"name": "Caricatura en lienzo 30x40 cm", "cents": P["canvas_30x40"], "ships": True, "mm": (300, 400), "bleed": 10, "type": "canvas", "size": "30x40 cm"},
+    "canvas_40x50": {"name": "Caricatura en lienzo 40x50 cm", "cents": P["canvas_40x50"], "ships": True, "mm": (400, 500), "bleed": 10, "type": "canvas", "size": "40x50 cm"},
+    "canvas_50x70": {"name": "Caricatura en lienzo 50x70 cm", "cents": P["canvas_50x70"], "ships": True, "mm": (500, 700), "bleed": 10, "type": "canvas", "size": "50x70 cm"},
+    "canvas_60x90": {"name": "Caricatura en lienzo 60x90 cm", "cents": P["canvas_60x90"], "ships": True, "mm": (600, 900), "bleed": 10, "type": "canvas", "size": "60x90 cm"},
+    "canvas_80x120": {"name": "Caricatura en lienzo 80x120 cm", "cents": P["canvas_80x120"], "ships": True, "mm": (800, 1200), "bleed": 10, "type": "canvas", "size": "80x120 cm"},
+    "poster_a4": {"name": "Caricatura en póster A4", "cents": P["poster_a4"], "ships": True, "mm": (210, 297), "bleed": 3, "type": "poster", "size": "A4"},
+    "poster_a3": {"name": "Caricatura en póster A3", "cents": P["poster_a3"], "ships": True, "mm": (297, 420), "bleed": 3, "type": "poster", "size": "A3"},
+    "poster_a2": {"name": "Caricatura en póster A2", "cents": P["poster_a2"], "ships": True, "mm": (420, 594), "bleed": 3, "type": "poster", "size": "A2"},
+    "poster_a1": {"name": "Caricatura en póster A1", "cents": P["poster_a1"], "ships": True, "mm": (594, 841), "bleed": 3, "type": "poster", "size": "A1"},
     # compatibilidad con la primera versión
-    "canvas": {"name": "Caricatura en lienzo 30x40 cm", "cents": config.PRICE_CANVAS_30x40_CENTS, "ships": True, "mm": (300, 400), "bleed": 10, "alias": "canvas_30x40"},
-    "poster": {"name": "Caricatura en póster A3 (29,7x42 cm)", "cents": config.PRICE_POSTER_A3_CENTS, "ships": True, "mm": (297, 420), "bleed": 3, "alias": "poster_a3"},
+    "canvas": {"name": "Caricatura en lienzo 30x40 cm", "cents": P["canvas_30x40"], "ships": True, "mm": (300, 400), "bleed": 10, "alias": "canvas_30x40", "type": "canvas", "size": "30x40 cm"},
+    "poster": {"name": "Caricatura en póster A3", "cents": P["poster_a3"], "ships": True, "mm": (297, 420), "bleed": 3, "alias": "poster_a3", "type": "poster", "size": "A3"},
 }
+
+
+def product_list() -> list[dict]:
+    return [{"id": k, "type": v["type"], "size": v["size"], "name": v["name"], "cents": v["cents"]} for k, v in PRODUCTS.items() if "alias" not in v]
 
 
 def gelato_uid(product: str) -> str:
@@ -67,19 +77,31 @@ def confirm_from_session(job_id: str, session_id: str) -> bool:
     if not config.PAYMENTS_ENABLED:
         return bool((storage.read_meta(job_id) or {}).get("paid"))
     stripe = stripe_client()
-    s = stripe.checkout.Session.retrieve(session_id, expand=["shipping_details"])
+    s = _as_dict(stripe.checkout.Session.retrieve(session_id))
     if s.get("payment_status") != "paid" or s.get("client_reference_id") != job_id:
         return False
     mark_paid(job_id, s)
     return True
 
 
+def _as_dict(obj) -> dict:
+    """La librería de Stripe devuelve objetos que ya no se comportan como dict."""
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "to_dict_recursive"):
+        return obj.to_dict_recursive()
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    return dict(obj)
+
+
 def mark_paid(job_id: str, session) -> None:
+    session = _as_dict(session)
     meta = storage.read_meta(job_id) or {}
     if meta.get("paid"):
         return
     details = session.get("customer_details") or {}
-    ship = session.get("shipping_details") or session.get("collected_information", {}).get("shipping_details") or {}
+    ship = session.get("shipping_details") or (session.get("collected_information") or {}).get("shipping_details") or {}
     addr = ship.get("address") or {}
     storage.update_meta(
         job_id,

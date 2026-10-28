@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{PAGE_TITLE}}</title>
+<meta name="description" content="{{SCENE_DESC}} Caricatura personalizada a partir de tu foto, en lienzo, póster o archivo. Ves el diseño antes de pagar. Envío gratis.">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="promo">-{{DISCOUNT}} % de lanzamiento · Envío gratis por mensajería · Ves el diseño antes de pagar <span class="phone">{{PHONE}}</span></div>
+<header class="top"><a class="logo" href="/">{{BRAND}}</a><nav id="nav"></nav></header>
+
+<main class="product">
+<div class="product-grid">
+  <div class="product-media">
+    <div class="delivery-banner">Haz tu pedido hoy y recíbelo antes del <b id="delivery-date"></b>.<br><small>* si apruebas el diseño hoy</small></div>
+    <div class="product-img"><img id="main-img" src="/api/example/{{SCENE_ID}}.jpg" alt="{{SCENE_NAME}}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'{{SCENE_NAME}}'}))"><span class="tu-foto big">tu foto ↗</span></div>
+    <div class="ship-info"><div><b>Envío gratuito por mensajería</b><br>Entrega en 24-48 h tras la aprobación del diseño.</div><div><b>Diseño para tu aprobación</b><br>Lo ves antes de pagar; nada se imprime sin tu OK.</div></div>
+  </div>
+
+  <div class="product-buy">
+    <p class="rating-line"><span class="stars">★★★★★</span> 5,0 / <a href="/#opiniones">reseñas</a></p>
+    <h1>{{SCENE_NAME}}</h1>
+    <p class="lead">{{SCENE_DESC}}</p>
+
+    <div class="buy-box">
+      <p class="from">Desde <b id="price-from"></b> <s id="price-before"></s></p>
+      <h3>Tipo y tamaño</h3>
+      <div class="types" id="types"></div>
+      <h3>Selecciona el tamaño</h3>
+      <div class="sizes" id="sizes"></div>
+      <p class="chosen-price">Precio: <b id="price-now"></b> · envío gratis</p>
+
+      <h3 class="upload-title">ENVIAR FOTOS</h3>
+      <p class="upload-sub">Hasta 3 pruebas gratuitas.</p>
+      <p class="hint">Sube una foto, añade tus deseos y pulsa "Generar visualización". Tarda 1-2 minutos.</p>
+      <form id="form" enctype="multipart/form-data">
+        <input type="hidden" name="scene" value="{{SCENE_ID}}">
+        <label class="drop" id="drop"><input type="file" id="photo" name="photo" accept="image/*" required><div class="drop-inner"><strong>+ Subir foto</strong><span>De frente, con luz, cara grande. 1-4 personas o tu mascota.</span></div><img id="thumb" alt="" hidden></label>
+        <label class="notes">Texto en el cuadro (opcional)<input type="text" name="dedication" id="dedication" maxlength="60" placeholder="Ej.: ¡Felices 50, Carlos!"></label>
+        <label class="notes">Escribe aquí tus deseos más importantes para el diseño; los incluiremos en la visualización.<textarea name="notes" id="notes" maxlength="300" rows="3" placeholder="Por ejemplo: cambiar el color de la moto, que lleve gafas, la camiseta azul."></textarea></label>
+        <button class="btn btn-primary wide" type="submit" id="go">Generar visualización</button>
+      </form>
+      <div id="loading" hidden><div class="spinner"></div><p id="loading-text">Dibujando tu caricatura…</p></div>
+      <p class="error" id="error" hidden></p>
+
+      <div id="preview-box" hidden>
+        <img id="preview" alt="Tu caricatura">
+        <p class="hint">La marca de agua desaparece al pagar. ¿No te convence? Genera otra (te quedan <b id="left">2</b>).</p>
+        <button class="btn btn-primary wide" id="pay">Pedir · <span id="pay-price"></span></button>
+        <button class="btn btn-ghost" id="retry">Probar con otra foto</button>
+      </div>
+      <div class="wa-row" id="wa-row" hidden><a class="btn btn-wa" id="wa-order" target="_blank">Haz tu pedido por WhatsApp</a><a class="btn btn-wa-outline" id="wa-ask" target="_blank">Haz una pregunta por WhatsApp</a></div>
+      <p class="pay-icons">Visa · Mastercard · Google Pay · Apple Pay</p>
+    </div>
+
+    <details class="acc"><summary>Descripción</summary><p>Caricatura personalizada creada a partir de tu foto: exageramos con humor los rasgos manteniendo el parecido, y añadimos la escena "{{SCENE_NAME}}". Perfecta para cumpleaños, aniversarios o para decorar el despacho o el garaje.</p></details>
+    <details class="acc"><summary>¿Cuadro sobre lienzo o póster?</summary><p><b>Lienzo:</b> la opción decorativa, parece un cuadro pintado; lleva bastidor de madera, no necesita marco. <b>Póster:</b> alternativa más económica para enmarcar tú, en papel grueso de 200 g.</p></details>
+    <details class="acc"><summary>Envíos y devoluciones</summary><p>Envío gratis en España, 24-48 h tras tu aprobación más 2-4 días de tránsito. Si no se parece, lo rehacemos una vez gratis; si llega dañado, lo reponemos.</p></details>
+  </div>
+</div>
+</main>
+
+<footer>
+  <p>© 2026 {{BRAND}} · Comartinvi S.L. · <a href="/static/legal.html">Política de privacidad · reembolso · envíos · aviso legal</a> · <a href="mailto:{{EMAIL}}">{{EMAIL}}</a></p>
+</footer>
+
+<script>
+const DEMO = {{DEMO}}, SCENE = "{{SCENE_ID}}", SCENE_NAME = "{{SCENE_NAME}}";
+const $ = s => document.querySelector(s);
+const eur = c => (c/100).toFixed(2).replace('.', ',') + ' €';
+let D = null, type = 'canvas', product = null, jobId = null, tries = 0;
+const TYPE_LABEL = {digital: 'Solo archivo (sin impresión)', canvas: 'Cuadro sobre lienzo', poster: 'Póster'};
+
+(function(){ const d = new Date(); let add = 6; while(add>0){ d.setDate(d.getDate()+1); if(d.getDay()!==0 && d.getDay()!==6) add--; }
+  $('#delivery-date').textContent = d.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'}); })();
+
+async function load(){
+  D = await (await fetch('/api/scenes')).json();
+  $('#nav').innerHTML = D.categories.map(c => `<a href="/regalos/${c.slug}">${c.name}</a>`).join('');
+  const minOf = t => Math.min(...D.products.filter(p=>p.type===t).map(p=>p.cents));
+  $('#types').innerHTML = ['digital','canvas','poster'].map(t => `<label class="type ${t===type?'on':''}" data-t="${t}"><b>${TYPE_LABEL[t]}</b><small>desde ${eur(minOf(t))}</small></label>`).join('');
+  $('#types').addEventListener('click', e => { const l = e.target.closest('.type'); if(!l) return; type = l.dataset.t; document.querySelectorAll('.type').forEach(x=>x.classList.toggle('on', x===l)); renderSizes(); });
+  const base = minOf('canvas'); $('#price-from').textContent = eur(base); $('#price-before').textContent = eur(Math.round(base/(1-D.discount/100)));
+  renderSizes();
+  if (D.whatsapp) { $('#wa-row').hidden = false; $('#wa-order').href = `https://wa.me/${D.whatsapp}?text=${encodeURIComponent('Hola, quiero pedir la caricatura "'+SCENE_NAME+'"')}`; $('#wa-ask').href = `https://wa.me/${D.whatsapp}?text=${encodeURIComponent('Hola, tengo una pregunta sobre "'+SCENE_NAME+'"')}`; }
+}
+function renderSizes(){
+  const list = D.products.filter(p => p.type === type);
+  $('#sizes').innerHTML = list.map((p,i) => `<button type="button" class="size ${i===0?'on':''}" data-id="${p.id}">${p.size}</button>`).join('');
+  $('#sizes').querySelectorAll('.size').forEach(b => b.addEventListener('click', () => { $('#sizes').querySelectorAll('.size').forEach(x=>x.classList.remove('on')); b.classList.add('on'); setProduct(b.dataset.id); }));
+  setProduct(list[0].id);
+}
+function setProduct(id){ product = D.products.find(p => p.id === id); $('#price-now').textContent = eur(product.cents); $('#pay-price').textContent = eur(product.cents); }
+load();
+
+const photo = $('#photo'), thumb = $('#thumb'), drop = $('#drop'), form = $('#form'), loading = $('#loading'), errorBox = $('#error');
+function showError(m){ errorBox.textContent = m; errorBox.hidden = false; }
+photo.addEventListener('change', () => { const f = photo.files[0]; if(!f) return; thumb.src = URL.createObjectURL(f); thumb.hidden = false; drop.classList.add('has'); });
+const msgs = ['Dibujando tu caricatura…','Exagerando lo justo…','Montando la escena…','Casi está…'];
+form.addEventListener('submit', async e => {
+  e.preventDefault(); errorBox.hidden = true;
+  if(!photo.files[0]) return showError('Sube una foto primero.');
+  if(tries >= 3) return showError('Has usado las 3 pruebas gratuitas. Si quieres otra, escríbenos.');
+  form.hidden = true; loading.hidden = false; let i = 0;
+  const t = setInterval(()=>{ i=(i+1)%msgs.length; $('#loading-text').textContent = msgs[i]; }, 12000);
+  try {
+    const r = await fetch('/api/generate', { method:'POST', body: new FormData(form) });
+    const data = await r.json(); if(!r.ok) throw new Error(data.detail || 'Error al generar');
+    tries++; jobId = data.job_id; $('#left').textContent = 3 - tries;
+    $('#preview').src = data.preview_url + '?t=' + Date.now(); $('#preview-box').hidden = false; $('#main-img').src = $('#preview').src;
+    $('#preview-box').scrollIntoView({behavior:'smooth', block:'center'});
+  } catch(err) { showError(err.message); form.hidden = false; }
+  finally { clearInterval(t); loading.hidden = true; }
+});
+$('#retry').addEventListener('click', () => { $('#preview-box').hidden = true; form.hidden = false; photo.value=''; thumb.hidden = true; drop.classList.remove('has'); });
+$('#pay').addEventListener('click', async () => {
+  $('#pay').disabled = true;
+  try {
+    const r = await fetch('/api/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ job_id: jobId, product: product.id }) });
+    const data = await r.json(); if(!r.ok) throw new Error(data.detail || 'Error al iniciar el pago');
+    location.href = data.url;
+  } catch(err) { showError(err.message); $('#pay').disabled = false; }
+});
+if (DEMO) { const b = document.createElement('div'); b.className='demo-banner'; b.textContent='Modo demo: caricatura simulada y pago simulado.'; document.body.prepend(b); }
+</script>
+</body>
+</html>

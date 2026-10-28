@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{PAGE_TITLE}}</title>
-<meta name="description" content="Pide una caricatura a partir de una foto: elige la escena, sube la foto, mira el resultado antes de pagar y recíbela en lienzo o póster. Envío gratis.">
+<meta name="description" content="Caricatura a partir de una foto: elige el diseño, sube la foto, mira el resultado antes de pagar y recíbela en lienzo o póster. Envío gratis.">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="promo">-{{DISCOUNT}} % de lanzamiento · Envío gratis en España · Lo ves antes de pagar <span class="phone">{{PHONE}}</span></div>
+<div class="promo">-{{DISCOUNT}} % de lanzamiento · Envío gratis por mensajería · Ves el diseño antes de pagar <span class="phone">{{PHONE}}</span></div>
 <header class="top">
   <a class="logo" href="/">{{BRAND}}</a>
   <nav id="nav"></nav>
@@ -25,225 +25,142 @@
       <a class="btn btn-ghost" href="#opiniones">Opiniones de clientes</a>
     </div>
     <ol class="mini-steps">
-      <li><b>1.</b> Elige la escena y sube una foto</li>
-      <li><b>2.</b> Mira tu caricatura en 1-2 minutos</li>
-      <li><b>3.</b> Si te gusta, elige tamaño y paga</li>
+      <li><b>1.</b> Elige el diseño y sube una foto</li>
+      <li><b>2.</b> Mira tu caricatura en 1-2 minutos (hasta 3 pruebas gratis)</li>
+      <li><b>3.</b> Si te gusta, elige tamaño y paga; envío gratis</li>
     </ol>
   </div>
   <div class="hero-art">
-    <div class="frame"><div class="placeholder">Ejemplo antes/después</div></div>
+    <div class="frame"><img id="hero-img" src="/api/example/motero.jpg" alt="Ejemplo de caricatura" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'Ejemplo antes/después'}))"></div>
     <p class="price-tag"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b> · envío gratis</p>
   </div>
 </section>
 
 <section class="trial">
-  <strong>Prueba gratis:</strong> ves la caricatura con marca de agua antes de pagar un céntimo. Si no te convence, pruebas con otra foto o con otra escena.
+  <strong>Prueba gratis:</strong> ves hasta 3 visualizaciones con marca de agua antes de pagar un céntimo. Si no te convence, no pagas.
 </section>
 
 <section id="catalogo" class="catalog">
   <h2>Elige tu caricatura</h2>
   <div class="filters" id="filters"></div>
-  <div class="grid" id="grid"></div>
-</section>
-
-<section id="crear" class="create" hidden>
-  <h2>Crea tu caricatura</h2>
-  <p class="chosen">Escena: <b id="scene-name"></b> · <a href="#catalogo" id="change-scene">cambiar</a></p>
-  <div class="steps-ind"><span class="on" data-step="1">1 Foto</span><span data-step="2">2 Caricatura</span><span data-step="3">3 Tamaño y pago</span></div>
-
-  <div class="panel" id="panel-upload">
-    <form id="form" enctype="multipart/form-data">
-      <input type="hidden" name="scene" id="scene">
-      <label class="drop" id="drop">
-        <input type="file" id="photo" name="photo" accept="image/*" required>
-        <div class="drop-inner">
-          <strong>Arrastra una foto o toca para elegir</strong>
-          <span>Mejor de frente, con buena luz y la cara grande. Sirve para 1 a 4 personas o tu mascota.</span>
-        </div>
-        <img id="thumb" alt="" hidden>
-      </label>
-      <div class="two">
-        <label class="notes">Texto en el cuadro (opcional)
-          <input type="text" name="dedication" id="dedication" maxlength="60" placeholder="Ej.: ¡Felices 50, Carlos!">
-        </label>
-        <label class="notes">¿Algún detalle? (opcional)
-          <input type="text" name="notes" id="notes" maxlength="200" placeholder="Ej.: camiseta azul y roja, que salga con su perro">
-        </label>
-      </div>
-      <button class="btn btn-primary" type="submit" id="go">Ver mi caricatura gratis</button>
-      <p class="hint">Tarda entre 30 y 90 segundos. La foto se usa solo para crear la caricatura y no se guarda.</p>
-    </form>
-    <div id="loading" hidden>
-      <div class="spinner"></div>
-      <p id="loading-text">Dibujando tu caricatura…</p>
-    </div>
-    <p class="error" id="error" hidden></p>
-  </div>
-
-  <div class="panel" id="panel-preview" hidden>
-    <div class="preview-grid">
-      <div class="preview-img"><img id="preview" alt="Tu caricatura"></div>
-      <div class="preview-side">
-        <h3>¿Te gusta? Elige tamaño</h3>
-        <p>La marca de agua desaparece al pagar. Si no te convence, prueba otra foto o escena; no se cobra nada.</p>
-        <div class="options" id="options">
-          <label class="opt"><input type="radio" name="product" value="canvas_20x30" checked><span><strong>Lienzo 20x30 cm</strong><small>Con bastidor de madera, listo para colgar.</small></span><b>{{PRICE_CANVAS_20x30}}</b></label>
-          <label class="opt"><input type="radio" name="product" value="canvas_30x40"><span><strong>Lienzo 30x40 cm</strong><small>El más vendido.</small></span><b>{{PRICE_CANVAS_30x40}}</b></label>
-          <label class="opt"><input type="radio" name="product" value="canvas_40x50"><span><strong>Lienzo 40x50 cm</strong><small>Para presidir el salón.</small></span><b>{{PRICE_CANVAS_40x50}}</b></label>
-          <label class="opt"><input type="radio" name="product" value="poster_a4"><span><strong>Póster A4</strong><small>Papel mate 200 g, sin marco.</small></span><b>{{PRICE_POSTER_A4}}</b></label>
-          <label class="opt"><input type="radio" name="product" value="poster_a3"><span><strong>Póster A3</strong><small>Papel mate 200 g, sin marco.</small></span><b>{{PRICE_POSTER_A3}}</b></label>
-          <label class="opt"><input type="radio" name="product" value="digital"><span><strong>Solo archivo digital</strong><small>PNG a 300 dpi, descarga inmediata.</small></span><b>{{PRICE_DIGITAL}}</b></label>
-        </div>
-        <button class="btn btn-primary" id="pay">Pagar y pedir · envío gratis</button>
-        <button class="btn btn-ghost" id="retry">Probar con otra foto</button>
-        <p class="hint">Pago seguro con tarjeta, Google Pay o Apple Pay. Si al recibirlo no se parece, lo rehacemos una vez gratis.</p>
-      </div>
-    </div>
-  </div>
+  <div id="groups"></div>
 </section>
 
 <section id="opiniones" class="reviews">
-  <h2>Opiniones de clientes</h2>
-  <p class="rating">★★★★★ <span>Aún sin reseñas: las primeras llegan con los primeros pedidos.</span></p>
+  <h2>Reseñas de clientes</h2>
+  <div class="rating-box">
+    <div><span class="stars">★★★★★</span> <b>5,00 de 5</b><br><small>Basado en 0 reseñas verificadas</small></div>
+    <div class="bars">
+      <div><span>★★★★★</span><i><b style="width:0%"></b></i><em>0</em></div>
+      <div><span>★★★★☆</span><i><b style="width:0%"></b></i><em>0</em></div>
+      <div><span>★★★☆☆</span><i><b style="width:0%"></b></i><em>0</em></div>
+      <div><span>★★☆☆☆</span><i><b style="width:0%"></b></i><em>0</em></div>
+      <div><span>★☆☆☆☆</span><i><b style="width:0%"></b></i><em>0</em></div>
+    </div>
+    <a class="btn btn-primary" href="mailto:{{EMAIL}}?subject=Mi%20rese%C3%B1a">Escribe una reseña</a>
+  </div>
+  <p class="example-note">Las reseñas de abajo son ejemplos de cómo se verán las opiniones de clientes; se sustituyen por las reales en cuanto lleguen los primeros pedidos.</p>
   <div class="cols" id="reviews-grid">
-    <div class="review"><p>"Aquí irá la primera opinión con foto del cuadro colgado."</p><small>— Nombre, ciudad</small></div>
-    <div class="review"><p>"Aquí irá la segunda."</p><small>— Nombre, ciudad</small></div>
-    <div class="review"><p>"Y la tercera."</p><small>— Nombre, ciudad</small></div>
-  </div>
-</section>
-
-<section id="como" class="how">
-  <h2>Cómo funciona</h2>
-  <div class="cols">
-    <div><span class="num">1</span><h3>Elige la escena</h3><p>Motero, novios, 50 cumpleaños, familia en el sofá… Puedes añadir un texto en el cuadro.</p></div>
-    <div><span class="num">2</span><h3>Sube una foto</h3><p>De frente, con luz. Si son varias personas, mejor que todos miren a cámara.</p></div>
-    <div><span class="num">3</span><h3>Mira, elige tamaño y paga</h3><p>Ves la caricatura antes de pagar. Lienzo o póster: se imprime en España y llega en 3-6 días laborables.</p></div>
-  </div>
-  <div class="cols two-cols">
-    <div class="feature"><h3>Lienzo listo para colgar</h3><p>Impresión sobre lienzo tensado en bastidor de madera de 2 cm. Tamaños 20x30, 30x40 y 40x50 cm. Envío gratis en España.</p></div>
-    <div class="feature"><h3>Póster para enmarcar</h3><p>Papel mate de 200 g, colores vivos. Tamaños A4 y A3. Para quien prefiere elegir el marco.</p></div>
+    <article class="review"><div class="rv-head"><span class="stars">★★★★★</span><small>Ejemplo</small></div><p class="rv-name">Nombre <span class="badge badge-ex">Ejemplo</span></p><div class="rv-img"><img src="/api/example/motero.jpg" alt="" onerror="this.parentNode.remove()"></div><h4>Caricatura de motero</h4><p>Aquí irá el texto de la reseña con la foto del cuadro colgado.</p></article>
+    <article class="review"><div class="rv-head"><span class="stars">★★★★★</span><small>Ejemplo</small></div><p class="rv-name">Nombre <span class="badge badge-ex">Ejemplo</span></p><div class="rv-img"><img src="/api/example/glamour.jpg" alt="" onerror="this.parentNode.remove()"></div><h4>Regalo de cumpleaños</h4><p>Aquí irá el texto de la reseña.</p></article>
+    <article class="review"><div class="rv-head"><span class="stars">★★★★★</span><small>Ejemplo</small></div><p class="rv-name">Nombre <span class="badge badge-ex">Ejemplo</span></p><div class="rv-img"><img src="/api/example/novios.jpg" alt="" onerror="this.parentNode.remove()"></div><h4>Regalo de boda</h4><p>Aquí irá el texto de la reseña.</p></article>
   </div>
 </section>
 
 <section class="contact">
-  <h2>¿Dudas? Escríbenos</h2>
-  <p>Email <a href="mailto:{{EMAIL}}">{{EMAIL}}</a>{{PHONE}}. Respondemos en el día.</p>
+  <div class="contact-grid">
+    <div><h2 style="text-align:left">Enviar consulta</h2><p>¿Quieres un diseño totalmente a medida, varias personas en fotos distintas o tienes una duda? Escríbenos con las fotos y te preparamos una visualización.</p></div>
+    <form class="contact-form" action="mailto:{{EMAIL}}" method="post" enctype="text/plain">
+      <div class="two"><input name="nombre" placeholder="Su nombre" required><input name="email" type="email" placeholder="Correo electrónico" required></div>
+      <input name="tema" placeholder="Tema">
+      <textarea name="mensaje" rows="5" placeholder="Tu mensaje"></textarea>
+      <p class="hint">Adjunta las fotos respondiendo al email que se abrirá, o escríbenos a <a href="mailto:{{EMAIL}}">{{EMAIL}}</a>.</p>
+      <button class="btn btn-primary" type="submit">Enviar</button>
+    </form>
+  </div>
+</section>
+
+<section id="como" class="how">
+  <h2>¿Cómo funciona?</h2>
+  <div class="cols">
+    <div><span class="num">1</span><h3>Elige el diseño</h3><p>Escoge entre nuestros diseños el que mejor refleje a la persona. Puedes añadir texto o un número.</p></div>
+    <div><span class="num">2</span><h3>Sube una foto</h3><p>No hace falta que sea perfecta. Con una foto de frente y con luz, la convertimos en una obra única.</p></div>
+    <div><span class="num">3</span><h3>Aprueba y recíbelo</h3><p>Ves la visualización antes de pagar. Tras el pago se imprime en 24-48 h y te llega a casa con envío gratis.</p></div>
+  </div>
+</section>
+
+<section class="feature-dark">
+  <div class="feature-inner">
+    <div class="feature-img"><img src="/api/example/jefe-oleo.jpg" alt="" onerror="this.remove()"></div>
+    <div>
+      <h2 style="text-align:left;color:#fff">Cuadro sobre lienzo</h2>
+      <p>Nuestros retratos se imprimen sobre lienzo con tintas de la más alta calidad. Una imagen única que conservará su belleza para siempre.</p>
+      <div class="icons"><span>Buen gramaje</span><span>Listo para colgar</span><span>Bastidor de 2 cm</span><span>Tinta de calidad</span></div>
+    </div>
+  </div>
+</section>
+<section class="feature-light">
+  <div class="feature-inner">
+    <div>
+      <h2 style="text-align:left">Póster</h2>
+      <p>Nuestros pósteres presentan impresiones de la más alta calidad, con nitidez excepcional, riqueza de detalle y colores intensos y uniformes. Papel de 200 g/m² y reproducción fiel del color.</p>
+      <div class="icons light"><span>Papel 200 g/m²</span><span>Colores fieles</span><span>Tamaños A4 a A1</span></div>
+    </div>
+    <div class="feature-img"><img src="/api/example/glamour-40.jpg" alt="" onerror="this.remove()"></div>
+  </div>
 </section>
 
 <section id="faq" class="faq">
   <h2>Preguntas frecuentes</h2>
-  <details><summary>¿Cómo se hace la caricatura?</summary><p>A partir de tu foto, con inteligencia artificial entrenada en caricatura ilustrada, y revisada por nosotras antes de imprimir. La cara, el peinado, las gafas o la barba salen de la foto; la escena la eliges tú.</p></details>
-  <details><summary>¿Y si no se parece?</summary><p>Lo ves antes de pagar, así que solo pagas si te convence. Si al recibir el lienzo crees que no se parece, lo rehacemos una vez gratis con otra foto. El archivo digital no admite devolución una vez descargado.</p></details>
-  <details><summary>¿Qué foto funciona mejor?</summary><p>De frente, con la cara grande y bien iluminada, sin gafas de sol ni gorra. Para grupos, que todos miren a cámara y estén a la misma distancia. Una foto del móvil normal sirve.</p></details>
-  <details><summary>¿Puedo poner a varias personas?</summary><p>Sí, de 1 a 4 personas en la misma foto, o tu mascota. Si tienes fotos separadas, escríbenos y lo montamos.</p></details>
-  <details><summary>¿Puedo añadir un texto o una fecha?</summary><p>Sí: escribe la dedicatoria al subir la foto y aparecerá en una banda en la parte baja del cuadro.</p></details>
-  <details><summary>¿Cuánto tarda en llegar?</summary><p>Se imprime en 1-2 días laborables y el envío en España tarda 2-4 más. Para Navidad, pide antes del 15 de diciembre.</p></details>
-  <details><summary>¿Cuánto cuesta el envío?</summary><p>Nada: el envío en España está incluido. A otros países se calcula al pagar.</p></details>
-  <details><summary>¿Enviáis a Latinoamérica o a EE. UU.?</summary><p>Lienzo y póster: a EE. UU. y a México sí (el coste de envío se ve al pagar). A otros países, de momento solo el archivo digital, que puedes imprimir en cualquier tienda de fotos.</p></details>
-  <details><summary>¿Qué hacéis con mi foto?</summary><p>Solo la usamos para crear la caricatura y no la guardamos. La caricatura sin pagar se borra a las pocas horas; la pagada, a los 14 días, cuando ya la has recibido.</p></details>
-  <details><summary>¿Puedo cambiar algo después de pagar?</summary><p>No: lo que ves es lo que se imprime. Por eso te lo enseñamos antes. Si quieres otro resultado, sube otra foto, cambia la escena o añade un detalle en el cuadro de texto antes de generar.</p></details>
-  <details><summary>¿Cómo se paga?</summary><p>Con tarjeta, Google Pay o Apple Pay, a través de Stripe. No guardamos los datos de tu tarjeta.</p></details>
-  <details><summary>¿Hacéis factura?</summary><p>Sí, pídela por email con el número de pedido y los datos de facturación.</p></details>
-  <details><summary>¿Y si llega dañado?</summary><p>Lo reponemos sin coste. Mándanos una foto del paquete y del cuadro en las 48 horas siguientes a recibirlo.</p></details>
-</section>
-
-<section class="newsletter">
-  <h2>Un 10 % para tu primer pedido</h2>
-  <form id="nl" onsubmit="event.preventDefault(); this.querySelector('button').textContent='¡Apuntado!';">
-    <input type="email" placeholder="tu@email.com" required><button class="btn btn-primary" type="submit">Quiero el 10 %</button>
-  </form>
+  <details><summary>¿Cómo encargar una caricatura a partir de una foto?</summary><p>Elige el diseño, sube la foto y escribe tus indicaciones. En 1-2 minutos ves la visualización (hasta 3 pruebas gratis). Si te gusta, eliges tipo de impresión y tamaño y pagas. Se imprime en 24-48 h y el envío por mensajería es gratis.</p></details>
+  <details><summary>¿Cuánto tiempo se tarda en crear una caricatura o un retrato?</summary><p>La visualización, 1-2 minutos. Tras tu aprobación y pago, la impresión tarda 24-48 h laborables y el envío 2-4 días más.</p></details>
+  <details><summary>¿Cuánto tiempo tardará la entrega? ¿Hay algún cargo por envío?</summary><p>El envío por mensajería en España es gratis. Se envía 24-48 h después de tu aprobación. El plazo de tránsito depende de la mensajería y la dirección; en España, 2-4 días laborables.</p></details>
+  <details><summary>¿En qué formato recibiré mi caricatura terminada? ¿Qué formatos están disponibles?</summary><p>Cuadro sobre lienzo listo para colgar (20x30, 30x40, 40x50, 50x70, 60x90 y 80x120 cm), póster sin marco (A4, A3, A2 y A1) o solo el archivo digital en alta resolución.</p></details>
+  <details><summary>¿Puedo ver y aprobar el diseño antes de imprimir?</summary><p>Sí, siempre. Ves la visualización antes de pagar y no se imprime nada sin tu aprobación.</p></details>
+  <details><summary>¿Qué foto debo enviar para que me hagan una caricatura?</summary><p>Una foto en la que la cara y la sonrisa se vean bien: alta resolución, nítida, sin gafas de sol ni pelo tapando la cara. De frente o ligeramente de perfil, con luz natural. Si son varias personas sin foto en común, escríbenos y las combinamos en una escena.</p></details>
+  <details><summary>¿Puedo obtener una visualización gratuita antes de pedir?</summary><p>Sí: cada diseño te deja generar hasta 3 visualizaciones gratis con marca de agua. Pagas solo si te convence.</p></details>
+  <details><summary>¿Puedo añadir una dedicatoria o un mensaje personal?</summary><p>Sí. Escribe el texto (nombre, fecha, frase) al subir la foto y aparecerá en el cuadro.</p></details>
+  <details><summary>¿Cuánto cuesta hacer una caricatura a partir de una fotografía?</summary><p>Depende del tipo de impresión y del tamaño. El precio aparece al elegir la variante, antes de pagar. El descuento del precio tachado ya está incluido. Envío gratis.</p></details>
+  <details><summary>¿Cómo puedo pagar? ¿El pago se realiza por adelantado?</summary><p>Con tarjeta, Google Pay o Apple Pay, a través de Stripe. Pagas después de ver la visualización y antes de la impresión.</p></details>
+  <details><summary>¿Puedo devolver la caricatura si no cumple con mis expectativas?</summary><p>Lo ves antes de pagar. Si al recibir el cuadro crees que no se parece, lo rehacemos una vez gratis con otra foto. Si llega dañado, lo reponemos sin coste. El archivo digital no admite devolución una vez descargado.</p></details>
+  <details><summary>¿Qué hacéis con mi foto?</summary><p>Solo se usa para crear la caricatura y no se guarda. La visualización sin pagar se borra a las pocas horas; la pagada, a los 14 días.</p></details>
 </section>
 </main>
 
 <footer>
-  <p>{{BRAND}} · Comartinvi S.L. · <a href="/static/legal.html">Aviso legal, privacidad, envíos y devoluciones</a> · <a href="mailto:{{EMAIL}}">{{EMAIL}}</a></p>
-  <p class="pay-icons">Visa · Mastercard · Google Pay · Apple Pay</p>
+  <nav class="foot-nav"><a href="#catalogo">Diseños</a><a href="#opiniones">Comentarios</a><a href="/static/legal.html">Sobre nosotros</a><a href="mailto:{{EMAIL}}">Contacto</a></nav>
+  <form class="newsletter" onsubmit="event.preventDefault(); this.querySelector('button').textContent='¡Apuntado!';"><label>Suscríbete al boletín: un 10 % en tu primer pedido</label><div><input type="email" placeholder="Correo electrónico" required><button class="btn btn-primary" type="submit">→</button></div></form>
+  <p class="pay-icons">Google Pay · Apple Pay · Mastercard · Visa</p>
+  <p>© 2026 {{BRAND}} · Comartinvi S.L. · <a href="/static/legal.html">Política de privacidad</a> · <a href="/static/legal.html">Política de reembolso</a> · <a href="/static/legal.html">Política de envíos</a> · <a href="/static/legal.html">Aviso legal</a></p>
 </footer>
 
 <script>
-const DEMO = {{DEMO}};
-const CATEGORY = "{{CATEGORY}}";
+const DEMO = {{DEMO}}, CATEGORY = "{{CATEGORY}}";
 const $ = s => document.querySelector(s);
-const form = $('#form'), photo = $('#photo'), thumb = $('#thumb'), drop = $('#drop');
-const loading = $('#loading'), errorBox = $('#error');
-let jobId = null, scenes = [], categories = [];
-
-function setStep(n){ document.querySelectorAll('.steps-ind span').forEach(s=>s.classList.toggle('on', +s.dataset.step<=n)); }
-function showError(msg){ errorBox.textContent = msg; errorBox.hidden = false; }
-
-async function loadCatalog(){
-  const r = await fetch('/api/scenes'); const d = await r.json();
-  scenes = d.scenes; categories = d.categories;
-  $('#nav').innerHTML = categories.map(c => `<a href="/regalos/${c.slug}">${c.name}</a>`).join('');
+let D = null;
+async function load(){
+  D = await (await fetch('/api/scenes')).json();
+  $('#nav').innerHTML = D.categories.map(c => `<a href="/regalos/${c.slug}">${c.name}</a>`).join('');
   const f = $('#filters');
-  f.innerHTML = `<button data-cat="" class="${CATEGORY?'':'on'}">Todas</button>` + categories.map(c => `<button data-cat="${c.slug}" class="${c.slug===CATEGORY?'on':''}">${c.name}</button>`).join('');
-  f.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; f.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGrid(b.dataset.cat); });
-  renderGrid(CATEGORY);
+  f.innerHTML = `<button data-cat="" class="${CATEGORY?'':'on'}">Todos</button>` + D.categories.map(c => `<button data-cat="${c.slug}" class="${c.slug===CATEGORY?'on':''}">${c.name}</button>`).join('');
+  f.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; f.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); render(b.dataset.cat); });
+  render(CATEGORY);
 }
-function renderGrid(cat){
-  const list = scenes.filter(s => !cat || s.categories.includes(cat));
-  $('#grid').innerHTML = list.map(s => `
-    <article class="card" data-id="${s.id}">
-      <div class="card-img"><span>${s.name}</span></div>
-      <h3>${s.name}</h3><p>${s.desc}</p>
-      <p class="card-price"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b></p>
-      <button class="btn btn-primary btn-sm">Elegir y subir foto</button>
-    </article>`).join('');
-  $('#grid').querySelectorAll('.card').forEach(c => c.querySelector('button').addEventListener('click', () => chooseScene(c.dataset.id)));
+function card(s){
+  return `<a class="card" href="/p/${s.id}">
+    <div class="card-img"><span class="badge">-${D.discount}%</span><img src="/api/example/${s.id}.jpg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'card-title',textContent:'${s.name.replace(/'/g,"\\'")}'}))"><span class="tu-foto">tu foto ↗</span></div>
+    <h3>${s.name}</h3><p>${s.desc}</p>
+    <p class="card-price"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b></p></a>`;
 }
-function chooseScene(id){
-  const s = scenes.find(x => x.id === id); if(!s) return;
-  $('#scene').value = id; $('#scene-name').textContent = s.name;
-  $('#crear').hidden = false; $('#crear').scrollIntoView({behavior:'smooth'});
+function render(cat){
+  const list = D.scenes.filter(s => !cat || s.categories.includes(cat));
+  $('#groups').innerHTML = D.groups.map(g => {
+    const items = list.filter(s => s.group === g.slug); if(!items.length) return '';
+    return `<h3 class="group-title">${g.name}:</h3><div class="grid">${items.map(card).join('')}</div>`;
+  }).join('');
 }
-loadCatalog();
-
-photo.addEventListener('change', () => {
-  const f = photo.files[0]; if(!f) return;
-  thumb.src = URL.createObjectURL(f); thumb.hidden = false; drop.classList.add('has');
-});
-['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
-['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', e => { photo.files = e.dataTransfer.files; photo.dispatchEvent(new Event('change')); });
-
-const msgs = ['Dibujando tu caricatura…','Exagerando lo justo…','Montando la escena…','Casi está…'];
-form.addEventListener('submit', async e => {
-  e.preventDefault(); errorBox.hidden = true;
-  if(!photo.files[0]) return showError('Elige una foto primero.');
-  form.hidden = true; loading.hidden = false; let i = 0;
-  const t = setInterval(()=>{ i=(i+1)%msgs.length; $('#loading-text').textContent = msgs[i]; }, 12000);
-  try {
-    const fd = new FormData(form);
-    const r = await fetch('/api/generate', { method:'POST', body: fd });
-    const data = await r.json();
-    if(!r.ok) throw new Error(data.detail || 'Error al generar');
-    jobId = data.job_id;
-    $('#preview').src = data.preview_url + '?t=' + Date.now();
-    $('#panel-upload').hidden = true; $('#panel-preview').hidden = false; setStep(2);
-    $('#panel-preview').scrollIntoView({behavior:'smooth'});
-  } catch(err) {
-    showError(err.message); form.hidden = false;
-  } finally { clearInterval(t); loading.hidden = true; }
-});
-
-$('#retry').addEventListener('click', () => {
-  jobId = null; photo.value=''; thumb.hidden = true; drop.classList.remove('has');
-  $('#panel-preview').hidden = true; $('#panel-upload').hidden = false; form.hidden = false; setStep(1);
-  $('#crear').scrollIntoView({behavior:'smooth'});
-});
-
-$('#pay').addEventListener('click', async () => {
-  const product = document.querySelector('input[name=product]:checked').value;
-  $('#pay').disabled = true; $('#pay').textContent = 'Un momento…'; setStep(3);
-  try {
-    const r = await fetch('/api/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ job_id: jobId, product }) });
-    const data = await r.json();
-    if(!r.ok) throw new Error(data.detail || 'Error al iniciar el pago');
-    location.href = data.url;
-  } catch(err) { showError(err.message); $('#pay').disabled = false; $('#pay').textContent = 'Pagar y pedir · envío gratis'; }
-});
-
-if (DEMO) { const b = document.createElement('div'); b.className='demo-banner'; b.textContent='Modo demo: caricatura simulada y pago simulado. Añade OPENAI_API_KEY y STRIPE_SECRET_KEY para activarlo.'; document.body.prepend(b); }
+load();
+if (DEMO) { const b = document.createElement('div'); b.className='demo-banner'; b.textContent='Modo demo: caricatura simulada y pago simulado.'; document.body.prepend(b); }
 </script>
 </body>
 </html>

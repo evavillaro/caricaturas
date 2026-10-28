@@ -41,19 +41,18 @@ async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str
         prompt += f" Dedicatoria que el cliente ha pedido (NO la escribas en la imagen; solo úsala si da pistas como un número de edad o unos colores): '{dedication[:80]}'."
     if extra_prompt:
         prompt += " Detalles del cliente: " + extra_prompt[:300]
-    files = {"image[]": ("photo.png", _to_png_bytes(photo), "image/png")}
-    data = {
+    data_url = "data:image/png;base64," + base64.b64encode(_to_png_bytes(photo)).decode()
+    body = {
         "model": config.OPENAI_IMAGE_MODEL,
         "prompt": prompt,
+        "images": [{"image_url": data_url}],
         "size": config.IMAGE_SIZE,
-        "quality": "high",
-        "n": "1",
+        "quality": config.IMAGE_QUALITY,
+        "n": 1,
     }
     headers = {"Authorization": f"Bearer {config.OPENAI_API_KEY}"}
-    async with httpx.AsyncClient(timeout=180) as client:
-        r = await client.post(
-            "https://api.openai.com/v1/images/edits", headers=headers, data=data, files=files
-        )
+    async with httpx.AsyncClient(timeout=240) as client:
+        r = await client.post("https://api.openai.com/v1/images/edits", headers=headers, json=body)
     if r.status_code != 200:
         raise RuntimeError(f"OpenAI {r.status_code}: {r.text[:300]}")
     b64 = r.json()["data"][0]["b64_json"]

@@ -28,8 +28,10 @@ PRICE_POSTER_CENTS = PRICE_POSTER_A3_CENTS
 
 # --- Generación de imagen ----------------------------------------------------
 OPENAI_API_KEY = env("OPENAI_API_KEY")
-OPENAI_IMAGE_MODEL = env("OPENAI_IMAGE_MODEL", "gpt-image-1")
-IMAGE_SIZE = env("IMAGE_SIZE", "1024x1536")  # vertical, proporción 2:3 (30x45 ~ 30x40)
+# gpt-image-1 se retiró el 23-oct-2026; el actual por defecto es gpt-image-2.5-sunburst
+OPENAI_IMAGE_MODEL = env("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst")
+IMAGE_SIZE = env("IMAGE_SIZE", "1152x1536")  # vertical 3:4, la proporción del lienzo 30x40 (múltiplos de 16)
+IMAGE_QUALITY = env("IMAGE_QUALITY", "high")  # low, medium, high, xhigh, max
 STYLE_PROMPT = env(
     "STYLE_PROMPT",
     "Convierte a las personas de esta foto en una caricatura ilustrada de estilo "

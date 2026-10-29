@@ -213,7 +213,7 @@ async def admin_generate_images(token: str = "", limit: int = 10, before_after: 
 
 
 @app.post("/admin/make-faces")
-async def admin_make_faces(token: str = "", per_band: int = 2):
+async def admin_make_faces(token: str = "", per_band: int = 3):
     """Genera el banco de caras: por género y franja de edad, per_band fotos (24 en total con 2)."""
     _admin(token)
     existing = set(await catalog.list_faces())

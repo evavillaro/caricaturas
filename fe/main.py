@@ -10,11 +10,11 @@ import re
 import time
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from PIL import Image
+from PIL import Image, ImageOps
 
 from . import art, config, content, db, seed, shop
 
@@ -75,7 +75,7 @@ def card(p: dict) -> dict:
 async def reviews_for(slug: str | None = None, limit: int = 30) -> list[dict]:
     if not db.ENABLED:
         return []
-    params = {"select": "*", "order": "created_at.desc", "limit": str(limit)}
+    params = {"select": "*", "approved": "eq.true", "order": "created_at.desc", "limit": str(limit)}
     if slug:
         params["product_slug"] = f"eq.{slug}"
     try:
@@ -254,6 +254,54 @@ async def sitemap():
     urls += [f"{config.BASE_URL}/p/{k}" for k in PAGES] + [f"{config.BASE_URL}/encuentra-tu-cuadro"]
     xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>"
     return Response(xml, media_type="application/xml")
+
+
+# --- reseñas -------------------------------------------------------------------------
+
+@app.post("/api/reviews")
+async def api_review_create(name: str = Form(...), body: str = Form(...), rating: int = Form(5), slug: str = Form(""), pedido: str = Form(""),
+                            photo: UploadFile | None = File(None)):
+    name = name.strip()[:60]; body = body.strip()[:1500]; rating = max(1, min(5, rating))
+    if not name or len(body) < 3:
+        raise HTTPException(400, "Faltan datos")
+    verified = False
+    if pedido:
+        o = await shop.get_order(pedido[:40])
+        verified = bool(o and str(o.get("status", "")).startswith(("paid", "in_", "ship", "deliver", "fulfil", "sent")))
+    photo_url = None
+    if photo is not None and photo.filename:
+        data = await photo.read()
+        if len(data) > 15 * 1024 * 1024:
+            raise HTTPException(400, "La foto es demasiado grande")
+        try:
+            im = ImageOps.exif_transpose(Image.open(io.BytesIO(data))).convert("RGB")
+            import secrets as _s
+            photo_url = await db.upload(f"_reviews/{_s.token_hex(8)}.jpg", art.jpeg(im, max_side=1400))
+        except Exception:
+            raise HTTPException(400, "No se ha podido leer la foto")
+    await db.upsert("fe_reviews", [{"name": name, "rating": rating, "body": body, "product_slug": slug[:120] or None,
+                                    "order_id": pedido[:40] or None, "verified": verified, "photo_url": photo_url}])
+    from . import mail
+    await mail.admin_alert("Nueva reseña para revisar", f"{name} ({rating}★) {slug}: {body}{' [con foto]' if photo_url else ''}\n\nApruébala en {config.BASE_URL}/admin/reviews?token={config.ADMIN_TOKEN}")
+    return {"ok": True}
+
+
+@app.get("/admin/reviews", response_class=HTMLResponse)
+async def admin_reviews(token: str = ""):
+    _auth(token)
+    import html as _h
+    rows = await db.get("fe_reviews", {"select": "*", "order": "created_at.desc", "limit": "200"})
+    tr = "".join(f"""<tr><td>{r['created_at'][:10]}</td><td>{_h.escape(r['name'])}</td><td>{'★'*r['rating']}</td><td>{_h.escape(r.get('product_slug') or '')}</td>
+<td>{_h.escape(r['body'])}{f'<br><img src="{r["photo_url"]}" style="max-width:160px">' if r.get('photo_url') else ''}</td><td>{'✔ verificada' if r.get('verified') else ''}</td>
+<td>{'<b>publicada</b>' if r.get('approved') else 'pendiente'}<br><a href="/admin/reviews/{r['id']}?token={token}&approved=1">Publicar</a> · <a href="/admin/reviews/{r['id']}?token={token}&approved=0">Ocultar</a></td></tr>""" for r in rows)
+    return f"<meta name=viewport content='width=device-width'><h2>Reseñas</h2><table border=1 cellpadding=6 style='border-collapse:collapse;font-family:sans-serif'>{tr}</table>"
+
+
+@app.get("/admin/reviews/{rid}")
+async def admin_review_set(rid: str, token: str = "", approved: int = 1):
+    _auth(token)
+    await db.patch("fe_reviews", "id", rid, {"approved": bool(approved)})
+    return RedirectResponse(f"/admin/reviews?token={token}", 303)
 
 
 # --- admin ---------------------------------------------------------------------------

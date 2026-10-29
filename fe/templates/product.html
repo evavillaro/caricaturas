@@ -59,10 +59,26 @@
 <section class="section" id="opiniones">
   <h2 class="center serif">Opiniones de clientes</h2>
   {% if reviews %}
-    <div class="rev-list">{% for r in reviews %}<div class="rev-row"><p class="stars">{{ '★' * r.rating }}</p><p><b>{{ r.name }}</b>{% if r.verified %} · compra verificada{% endif %} · {{ r.created_at[:10] }}</p><p>{{ r.body }}</p></div>{% endfor %}</div>
+    <div class="rev-list">{% for r in reviews %}<div class="rev-row"><p class="stars">{{ '★' * r.rating }}</p><p><b>{{ r.name }}</b>{% if r.verified %} · compra verificada{% endif %} · {{ r.created_at[:10] }}</p>{% if r.photo_url %}<img class="rev-photo" src="{{ r.photo_url }}" alt="Foto de {{ r.name }}" loading="lazy">{% endif %}<p>{{ r.body }}</p></div>{% endfor %}</div>
   {% else %}
     <p class="center muted">Todavía no hay opiniones de este cuadro. Cuando lo recibas, te pediremos la tuya.</p>
   {% endif %}
+  <details class="rev-form-wrap"><summary class="btn btn-ghost">Escribir una opinión</summary>
+  <form id="revForm" class="rev-form" enctype="multipart/form-data">
+    <input type="hidden" name="slug" value="{{ p.slug }}"><input type="hidden" name="pedido" id="revPedido">
+    <label>Valoración <select name="rating"><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label>
+    <input name="name" placeholder="Tu nombre" required maxlength="60">
+    <textarea name="body" rows="4" placeholder="¿Qué te ha parecido?" required maxlength="1500"></textarea>
+    <label class="muted">📷 Foto de cómo ha quedado en tu pared (opcional) <input type="file" name="photo" accept="image/*"></label>
+    <button class="btn" type="submit">Enviar opinión</button>
+    <p class="muted small" id="revMsg">Revisamos cada opinión antes de publicarla.</p>
+  </form></details>
+  <script>
+  (function(){const q=new URLSearchParams(location.search).get('pedido'); if(q){document.getElementById('revPedido').value=q; document.querySelector('.rev-form-wrap').open=true;}
+  document.getElementById('revForm').addEventListener('submit', async e=>{e.preventDefault(); const f=e.target, b=f.querySelector('button'), m=document.getElementById('revMsg');
+    b.disabled=true; b.textContent='Enviando…'; const r=await fetch('/api/reviews',{method:'POST',body:new FormData(f)});
+    if(r.ok){f.innerHTML='<p><b>¡Gracias!</b> Publicaremos tu opinión en cuanto la revisemos.</p>';} else {b.disabled=false; b.textContent='Enviar opinión'; m.textContent='No se ha podido enviar. Prueba de nuevo.';}});})();
+  </script>
 </section>
 
 {% if related %}

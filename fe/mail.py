@@ -101,10 +101,13 @@ async def order_shipped(o: dict, tracking_url: str | None, carrier: str | None):
 
 
 async def order_delivered(o: dict):
+    slug = next((i.get("slug") for i in (o.get("items") or []) if i.get("slug")), None)
+    url = f"{config.BASE_URL}/cuadro/{slug}?pedido={o['id']}#opiniones" if slug else None
     return await send(o.get("email"), "¿Qué tal ha quedado tu cuadro?",
                ["Según el transportista, tu cuadro ya está en casa. ¡Esperamos que te encante!",
-                "Si tienes un minuto, nos ayudaría muchísimo que nos contaras qué te ha parecido respondiendo a este correo (y si te animas, con una foto de cómo ha quedado en la pared).",
-                "Si algo no ha llegado bien, dínoslo y lo solucionamos."])
+                "Si tienes un minuto, nos ayudaría muchísimo que nos contaras qué te ha parecido (y si te animas, con una foto de cómo ha quedado en la pared).",
+                "Si algo no ha llegado bien, dínoslo respondiendo a este correo y lo solucionamos."],
+               button=("Dejar mi opinión", url) if url else None)
 
 
 async def admin_alert(subject: str, text: str):

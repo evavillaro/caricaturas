@@ -43,7 +43,7 @@ async def validate_items(raw: list[dict]) -> list[dict]:
         items.append({
             "slug": p["slug"], "title": p["title"], "kind": p["kind"], "size": size, "frame": frame, "qty": qty,
             "cents": eur * 100, "name": f"{p['title']} · {kind_name} {size} cm · {frame_label(frame)}",
-            "image": (p.get("images") or [None])[0],
+            "image": next((i["url"] for i in (p.get("images") or []) if isinstance(i, dict) and i.get("kind") == "main"), None),
         })
     return items
 

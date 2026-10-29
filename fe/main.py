@@ -24,6 +24,11 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title=config.BRAND, docs_url=None, redoc_url=None)
 from pathlib import Path
 HERE = Path(__file__).parent
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return RedirectResponse("/static/favicon.ico", 301)
+
+
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 T = Jinja2Templates(directory=HERE / "templates")
 

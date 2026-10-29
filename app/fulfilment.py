@@ -221,7 +221,7 @@ async def gelato_event(ev: dict) -> dict:
     if t.get("url"):
         await notify_once(ref, "shipped", mail.order_shipped, meta, t.get("url"), t.get("carrier"))
     if meta.get("status") == "delivered":
-        await notify_once(ref, "delivered", mail.order_delivered, meta)
+        await notify_once(ref, "delivered", mail.order_delivered, meta, ref)
     if meta.get("status") in ("print_error", "canceled", "on_hold", "returned"):
         await mail.admin_alert(f"Pedido {ref}: {meta.get('status')}", str(ev)[:1500])
     return {"ok": True, "status": meta.get("status")}

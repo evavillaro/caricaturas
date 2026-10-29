@@ -58,22 +58,20 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
 <section id="opiniones" class="reviews">
   <h2>Reseñas de clientes</h2>
   <div class="rating-box">
-    <div><span class="stars">★★★★★</span> <b>5,00 de 5</b><br><small>Basado en 0 reseñas verificadas</small></div>
-    <div class="bars">
-      <div><span>★★★★★</span><i><b style="width:0%"></b></i><em>0</em></div>
-      <div><span>★★★★☆</span><i><b style="width:0%"></b></i><em>0</em></div>
-      <div><span>★★★☆☆</span><i><b style="width:0%"></b></i><em>0</em></div>
-      <div><span>★★☆☆☆</span><i><b style="width:0%"></b></i><em>0</em></div>
-      <div><span>★☆☆☆☆</span><i><b style="width:0%"></b></i><em>0</em></div>
-    </div>
-    <a class="btn btn-primary" href="mailto:{{EMAIL}}?subject=Mi%20rese%C3%B1a">Escribe una reseña</a>
+    <div><span class="stars" id="rvStars">★★★★★</span> <b id="rvAvg">–</b><br><small id="rvCount">Todavía no hay reseñas</small></div>
+    <div class="bars" id="rvBars"></div>
+    <button class="btn btn-primary" type="button" onclick="document.getElementById('rvForm').hidden=false">Escribe una reseña</button>
   </div>
-  <p class="example-note">Las reseñas de abajo son ejemplos de cómo se verán las opiniones de clientes; se sustituyen por las reales en cuanto lleguen los primeros pedidos.</p>
-  <div class="cols" id="reviews-grid">
-    <article class="review"><div class="rv-head"><span class="stars">★★★★★</span><small>Ejemplo</small></div><p class="rv-name">Nombre <span class="badge badge-ex">Ejemplo</span></p><div class="rv-img"><img src="/api/example/motero.jpg" alt="" onerror="this.parentNode.remove()"></div><h4>Caricatura de motero</h4><p>Aquí irá el texto de la reseña con la foto del cuadro colgado.</p></article>
-    <article class="review"><div class="rv-head"><span class="stars">★★★★★</span><small>Ejemplo</small></div><p class="rv-name">Nombre <span class="badge badge-ex">Ejemplo</span></p><div class="rv-img"><img src="/api/example/glamour.jpg" alt="" onerror="this.parentNode.remove()"></div><h4>Regalo de cumpleaños</h4><p>Aquí irá el texto de la reseña.</p></article>
-    <article class="review"><div class="rv-head"><span class="stars">★★★★★</span><small>Ejemplo</small></div><p class="rv-name">Nombre <span class="badge badge-ex">Ejemplo</span></p><div class="rv-img"><img src="/api/example/novios.jpg" alt="" onerror="this.parentNode.remove()"></div><h4>Regalo de boda</h4><p>Aquí irá el texto de la reseña.</p></article>
-  </div>
+  <form id="rvForm" class="rv-form" hidden onsubmit="return sendReview(event)">
+    <p class="rv-pick">Tu valoración: <span id="rvPick"></span></p>
+    <div class="two"><input name="name" placeholder="Tu nombre (se publica así)" required maxlength="60"><input name="product" placeholder="¿Qué caricatura pediste? (opcional)" maxlength="120"></div>
+    <textarea name="body" rows="4" placeholder="Cuéntanos qué tal" required maxlength="1500"></textarea>
+    <input type="hidden" name="rating" value="5">
+    <button class="btn btn-primary">Enviar reseña</button>
+    <p class="hint">Revisamos cada reseña antes de publicarla (solo para evitar spam). Se marcan como verificadas las de pedidos reales.</p>
+  </form>
+  <p class="rv-thanks" id="rvThanks" hidden>¡Gracias! Publicaremos tu reseña en cuanto la revisemos.</p>
+  <div class="cols" id="reviews-grid"><p class="hint" id="rvEmpty">Sé la primera persona en opinar.</p></div>
 </section>
 
 <section class="contact">
@@ -177,7 +175,28 @@ function render(cat){
     return `<h3 class="group-title">${g.name}: <small>${items.length} diseños</small></h3><div class="grid">${shown.map(card).join('')}</div>${rest>0 ? `<p class="more"><a class="btn btn-ghost" href="/coleccion/${g.slug==='ella'?'regalo-para-mujer':g.slug==='el'?'regalo-para-hombre':g.slug==='pareja'?'boda':'familia'}">Ver los ${items.length} diseños →</a></p>` : ''}`;
   }).join('');
 }
-load();
+load(); loadReviews();
+function starsTxt(n){ return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0,5-n); }
+async function loadReviews(){
+  const pick = document.getElementById('rvPick'); pick.innerHTML = [1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" class="rv-star on">★</button>`).join('');
+  pick.onclick = e => { const b = e.target.closest('button'); if(!b) return; const n = +b.dataset.n; document.querySelector('#rvForm [name=rating]').value = n; pick.querySelectorAll('button').forEach(x => x.classList.toggle('on', +x.dataset.n <= n)); };
+  const r = await (await fetch('/api/reviews')).json(); const list = r.reviews || [];
+  if (!list.length) { document.getElementById('rvBars').innerHTML = [5,4,3,2,1].map(n=>`<div><span>${starsTxt(n)}</span><i><b style="width:0%"></b></i><em>0</em></div>`).join(''); return; }
+  const avg = list.reduce((s,x)=>s+x.rating,0)/list.length;
+  document.getElementById('rvAvg').textContent = avg.toFixed(2).replace('.',',') + ' de 5';
+  document.getElementById('rvStars').textContent = starsTxt(Math.round(avg));
+  document.getElementById('rvCount').textContent = `Basado en ${list.length} reseña${list.length>1?'s':''}`;
+  document.getElementById('rvBars').innerHTML = [5,4,3,2,1].map(n=>{ const c = list.filter(x=>x.rating===n).length; return `<div><span>${starsTxt(n)}</span><i><b style="width:${Math.round(100*c/list.length)}%"></b></i><em>${c}</em></div>`; }).join('');
+  const esc = t => String(t||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  document.getElementById('reviews-grid').innerHTML = list.slice(0,12).map(x=>`<article class="review"><div class="rv-head"><span class="stars">${starsTxt(x.rating)}</span><small>${x.created_at.slice(0,10).split('-').reverse().join('/')}</small></div><p class="rv-name">${esc(x.name)}${x.verified?' <span class="badge">Compra verificada</span>':''}</p>${x.product?`<h4>${esc(x.product)}</h4>`:''}<p>${esc(x.body)}</p></article>`).join('');
+}
+async function sendReview(e){
+  e.preventDefault(); const f = e.target; const data = Object.fromEntries(new FormData(f)); data.rating = +data.rating;
+  data.job = new URLSearchParams(location.search).get('pedido') || '';
+  const r = await fetch('/api/reviews', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+  if (r.ok) { f.hidden = true; document.getElementById('rvThanks').hidden = false; } else alert('No se ha podido enviar. Inténtalo de nuevo.');
+  return false;
+}
 if (DEMO) { const b = document.createElement('div'); b.className='demo-banner'; b.textContent='Modo demo: caricatura simulada y pago simulado.'; document.body.prepend(b); }
 </script>
 </body>

@@ -510,6 +510,57 @@ async def api_print_file(job_id: str):
     return Response(data, media_type="image/png")
 
 
+@app.get("/api/reviews")
+async def api_reviews():
+    if not catalog.ENABLED:
+        return {"reviews": []}
+    rows = await catalog._get("car_reviews", {"select": "name,rating,body,product,verified,created_at", "approved": "eq.true", "order": "created_at.desc", "limit": "100"})
+    return {"reviews": rows}
+
+
+@app.post("/api/reviews")
+async def api_review_create(request: Request):
+    b = await request.json()
+    name = str(b.get("name") or "").strip()[:60]; body = str(b.get("body") or "").strip()[:1500]
+    try:
+        rating = max(1, min(5, int(b.get("rating") or 5)))
+    except (TypeError, ValueError):
+        rating = 5
+    if not name or len(body) < 3:
+        raise HTTPException(400, "Faltan datos")
+    job = str(b.get("job") or "")[:40]
+    verified = False
+    if job:
+        try:
+            verified = bool((storage.read_meta(job) or {}).get("paid"))
+        except ValueError:
+            verified = False
+    row = {"name": name, "rating": rating, "body": body, "product": str(b.get("product") or "").strip()[:120] or None, "job_id": job or None, "verified": verified}
+    await catalog._upsert("car_reviews", [row])
+    from . import mail
+    await mail.admin_alert("Nueva reseña para revisar", f"{name} ({rating}★): {body}\n\nApruébala en {config.BASE_URL}/admin/reviews?token=…")
+    return {"ok": True}
+
+
+@app.get("/admin/reviews", response_class=HTMLResponse)
+async def admin_reviews(token: str = ""):
+    _admin(token)
+    rows = await catalog._get("car_reviews", {"select": "*", "order": "created_at.desc", "limit": "200"})
+    import html as _h
+    trs = "".join(f"<tr><td>{r['created_at'][:10]}</td><td>{_h.escape(r['name'])}</td><td>{'★'*r['rating']}</td><td>{_h.escape(r['body'])}</td><td>{'✓' if r['verified'] else ''}</td>"
+                  f"<td>{'publicada' if r['approved'] else 'pendiente'}</td><td><button onclick=\"act({r['id']},{str(not r['approved']).lower()})\">{'Ocultar' if r['approved'] else 'Publicar'}</button></td></tr>" for r in rows)
+    return HTMLResponse(f"""<!doctype html><meta charset=utf-8><title>Reseñas</title><body style="font-family:sans-serif;padding:20px"><h2>Reseñas</h2>
+<table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>Fecha</th><th>Nombre</th><th>Nota</th><th>Texto</th><th>Verif.</th><th>Estado</th><th></th></tr>{trs}</table>
+<script>async function act(id,ap){{await fetch('/admin/reviews/'+id+'?token={token}&approved='+ap,{{method:'POST'}});location.reload();}}</script>""")
+
+
+@app.post("/admin/reviews/{rid}")
+async def admin_review_set(rid: int, token: str = "", approved: bool = True):
+    _admin(token)
+    await catalog._patch("car_reviews", "id", str(rid), {"approved": approved})
+    return {"ok": True}
+
+
 @app.post("/api/gelato/webhook")
 async def gelato_webhook(request: Request, key: str = ""):
     if not config.env("GELATO_WEBHOOK_KEY") or key != config.env("GELATO_WEBHOOK_KEY"):

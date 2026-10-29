@@ -105,11 +105,12 @@ async def order_shipped(o: dict, tracking_url: str | None, carrier: str | None):
     return await send(o.get("email"), "Tu caricatura va de camino", p, button=("Seguir mi envío", tracking_url) if tracking_url else None)
 
 
-async def order_delivered(o: dict):
+async def order_delivered(o: dict, job_id: str = ""):
     return await send(o.get("email"), "¿Qué tal ha quedado tu caricatura?",
                       ["Según el transportista, tu caricatura ya está en casa. ¡Esperamos que haya sido un regalo de los que no se olvidan!",
-                       "Si tienes un minuto, nos ayudaría muchísimo que nos contaras qué tal respondiendo a este correo (y si te animas, con una foto de la reacción o del cuadro colgado).",
-                       "Si algo no ha llegado bien, dínoslo y lo solucionamos."])
+                       "Si tienes un minuto, nos ayudaría muchísimo que dejaras tu opinión: se publicará como compra verificada.",
+                       "Si algo no ha llegado bien, responde a este correo y lo solucionamos."],
+                      button=("Dejar mi opinión", f"{config.BASE_URL}/?pedido={job_id}#opiniones"))
 
 
 async def admin_alert(subject: str, text: str):

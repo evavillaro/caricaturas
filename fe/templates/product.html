@@ -70,6 +70,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
+<script type="application/ld+json">{{ {"@context": "https://schema.org", "@type": "Product", "name": p.title, "description": (c.intro or ""), "image": [im.url for im in p.images][:6], "brand": {"@type": "Brand", "name": brand}, "sku": p.slug, "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": p.from_price, "availability": "https://schema.org/InStock", "url": base_url ~ "/cuadro/" ~ p.slug}}|tojson }}</script>
 <script>
 const P = {slug: {{ p.slug|tojson }}, title: {{ p.title|tojson }}, kind: {{ p.kind|tojson }}, img: {{ (p.img or '')|tojson }}};
 const PRICES = {{ prices|safe }};

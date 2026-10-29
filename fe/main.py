@@ -42,6 +42,18 @@ def eur(n) -> str:
 T.env.filters["eur"] = eur
 
 
+@app.middleware("http")
+async def canonical_host(request: Request, call_next):
+    """Si entran por *.onrender.com, redirige al dominio propio (salvo webhooks y admin)."""
+    host = request.headers.get("host", "")
+    path = request.url.path
+    if host.endswith(".onrender.com") and config.BASE_URL.startswith("https://") and ".onrender.com" not in config.BASE_URL \
+            and not path.startswith(("/api/", "/admin", "/static/")):
+        q = ("?" + request.url.query) if request.url.query else ""
+        return RedirectResponse(config.BASE_URL + path + q, status_code=301)
+    return await call_next(request)
+
+
 def ctx(request: Request, **kw) -> dict:
     base = {
         "request": request, "brand": config.BRAND, "tagline": config.TAGLINE, "menu": MENU, "base_url": config.BASE_URL, "email": config.CONTACT_EMAIL,

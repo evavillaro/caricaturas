@@ -656,7 +656,7 @@ async def api_review_create(request: Request):
     row = {"name": name, "rating": rating, "body": body, "product": str(b.get("product") or "").strip()[:120] or None, "job_id": job or None, "verified": verified}
     await catalog._upsert("car_reviews", [row])
     from . import mail
-    await mail.admin_alert("Nueva reseña para revisar", f"{name} ({rating}★): {body}\n\nApruébala en {config.BASE_URL}/admin/reviews?token=…")
+    await mail.admin_alert("Nueva reseña para revisar", f"{name} ({rating}★): {body}\n\nApruébala en {config.BASE_URL}/admin/reviews?token={config.ADMIN_TOKEN}")
     return {"ok": True}
 
 

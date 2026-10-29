@@ -21,7 +21,7 @@ Devuelve SOLO un JSON con estas claves:
 - "occasions": lista corta separada por comas de las ocasiones en que más se regala (bautizo, comunión, boda, casa nueva, día de la madre...), coherente con el tema.
 - "about_title": "Sobre " + nombre corto de la obra.
 - "about": 2 párrafos (100-150 palabras en total) que explican el pasaje o la devoción, con contexto bíblico o de la tradición católica correcto, y cómo lo refleja la obra.
-- "faq": lista de 3 objetos {{"q":..., "a":...}}: 1) qué significa el versículo o la devoción, 2) una pregunta sobre el tema (historia, simbolismo o dónde aparece en la Biblia), 3) qué tamaño elegir para esa pared (usa la regla de los dos tercios del ancho del mueble; los tamaños de lienzo son 30x45, 60x90, 80x120 y 100x150 cm; los de lámina 20x25, 30x40, 45x60 y 60x90 cm).
+- "faq": lista de 3 objetos {{"q":..., "a":...}}: 1) qué significa el versículo o la devoción, 2) una pregunta sobre el tema (historia, simbolismo o dónde aparece en la Biblia), 3) qué tamaño elegir para esa pared (usa la regla de los dos tercios del ancho del mueble; los tamaños de lienzo son 30x45, 40x60, 50x75 y 60x90 cm; los de lámina 30x40, 45x60, 50x70 y 60x90 cm).
 No inventes datos sobre la empresa, cifras de clientes ni reseñas."""
 
 

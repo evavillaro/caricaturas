@@ -41,14 +41,14 @@ FRAMES = [
 ]
 FRAME_COLORS = {"natural": (198, 174, 138), "dark": (92, 62, 42), "black": (28, 28, 28), "gold": (176, 146, 86), "white": (240, 238, 232)}
 
-# Lienzo: proporción 2:3 (cm, lado corto x lado largo)
-CANVAS_SIZES = [("30x45", 300, 450), ("60x90", 600, 900), ("80x120", 800, 1200), ("100x150", 1000, 1500)]
-CANVAS_PRICES = {  # (sin marco, con marco)
-    "30x45": (79, 109), "60x90": (149, 199), "80x120": (229, 299), "100x150": (349, 439),
+# Lienzo: proporción 2:3 (cm, lado corto x lado largo). Gelato llega hasta 60x90 en 2:3.
+CANVAS_SIZES = [("30x45", 300, 450), ("40x60", 400, 600), ("50x75", 500, 750), ("60x90", 600, 900)]
+CANVAS_PRICES = {  # (sin marco, con marco) · coste Gelato+envío ≈ 36/65, 46/77, 60/93, 78/127
+    "30x45": (79, 119), "40x60": (99, 149), "50x75": (129, 179), "60x90": (159, 229),
 }
-# Lámina enmarcada (papel fine art)
-PRINT_SIZES = [("20x25", 200, 250), ("30x40", 300, 400), ("45x60", 450, 600), ("60x90", 600, 900)]
-PRINT_PRICES = {"20x25": 49, "30x40": 69, "45x60": 99, "60x90": 129}
+# Lámina enmarcada · coste ≈ 28, 50, 61, 75
+PRINT_SIZES = [("30x40", 300, 400), ("45x60", 450, 600), ("50x70", 500, 700), ("60x90", 600, 900)]
+PRINT_PRICES = {"30x40": 59, "45x60": 89, "50x70": 109, "60x90": 129}
 
 # UIDs de Gelato: se rellenan con /admin/fe/gelato (se guardan en Supabase) o por variable de entorno JSON
 GELATO_UIDS_JSON = env("FE_GELATO_UIDS")
@@ -66,7 +66,10 @@ def sizes_for(kind: str):
 
 
 def frames_for(kind: str):
-    return FRAMES if kind == "lienzo" else [f for f in FRAMES if f[0] != "none"]
+    # Gelato: lienzo enmarcado en madera clara, oscura o negro (sin dorado); lámina también en dorado
+    if kind == "lienzo":
+        return [f for f in FRAMES if f[0] != "gold"]
+    return [f for f in FRAMES if f[0] != "none"]
 
 
 def min_price(kind: str) -> int:

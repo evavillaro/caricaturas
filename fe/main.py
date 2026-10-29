@@ -467,3 +467,36 @@ async def admin_art_bg(token: str = "", workers: int = 3):
 
     asyncio.create_task(run())
     return {"started": True, "pending": len(queue)}
+
+
+@app.post("/admin/gelato-auto")
+async def admin_gelato_auto(token: str = ""):
+    """Busca en Gelato el UID de cada combinación tipo/tamaño/marco/orientación y los guarda."""
+    _auth(token)
+    base = "https://product.gelatoapis.com/v3/catalogs"
+    uids, missing = {}, []
+    color = {"natural": "natural-wood", "dark": "dark-wood", "black": "black", "gold": "gold", "white": "white"}
+    for kind in ("lienzo", "lamina"):
+        for size, a, b in config.sizes_for(kind):
+            for orient in ("h", "v"):
+                w, h = (b, a) if orient == "h" else (a, b)
+                for frame, _ in config.frames_for(kind):
+                    if kind == "lienzo" and frame == "none":
+                        cat, flt = "canvas", {"CanvasFormat": [f"{w}x{h}-mm", f"{h}x{w}-mm"], "Orientation": ["hor" if orient == "h" else "ver"]}
+                        pick = lambda u: "wood-fsc-2-cm" in u
+                    elif kind == "lienzo":
+                        cat, flt = "framed-canvas", {"CanvasFormat": [f"{w}x{h}-mm", f"{h}x{w}-mm"], "Orientation": ["hor" if orient == "h" else "ver"], "FrameColor": [color[frame]]}
+                        pick = lambda u: "wood-fsc-2-cm" in u
+                    else:
+                        cat, flt = "framed-posters", {"PaperFormat": [f"{a}x{b}-mm"], "Orientation": ["hor" if orient == "h" else "ver"], "FrameColor": [color[frame]]}
+                        pick = lambda u: "200-gsm-uncoated" in u and ("frm_wood" in u or frame == "gold")
+                    code, data = await shop.gelato("POST", f"{base}/{cat}/products:search", {"attributeFilters": flt, "limit": 100})
+                    cands = [p["productUid"] for p in (data.get("products") or [])] if code == 200 and isinstance(data, dict) else []
+                    good = [u for u in cands if pick(u)] or cands
+                    k = shop.uid_key(kind, size, frame, orient)
+                    if good:
+                        uids[k] = good[0]
+                    else:
+                        missing.append(k)
+    await db.set_setting("gelato_uids", uids)
+    return {"saved": len(uids), "missing": missing}

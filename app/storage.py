@@ -67,6 +67,25 @@ def persist(job_id: str) -> None:
     update_meta(job_id, persist=True)
 
 
+def backup(job_id: str) -> None:
+    """Copia de seguridad inmediata tras generar: si Render cambia de instancia (despliegue,
+    reinicio), la vista previa y el pago siguen funcionando. No marca el pedido como persistente."""
+    if not SB_ON:
+        return
+    d = job_dir(job_id)
+    for name, ct in (("preview.jpg", "image/jpeg"), ("result.png", "image/png")):
+        f = d / name
+        if f.exists():
+            try:
+                h = _h(ct); h["x-upsert"] = "true"
+                httpx.post(f"{SB_URL}/storage/v1/object/{BUCKET}/{job_id}/{name}", headers=h, content=f.read_bytes(), timeout=120)
+            except Exception:
+                pass
+    meta = read_meta(job_id)
+    if meta:
+        _sb_save(job_id, meta)
+
+
 def ensure_file(job_id: str, name: str) -> Path:
     """Devuelve la ruta local del archivo; si el disco se borró, lo recupera de Supabase."""
     p = job_dir(job_id) / name

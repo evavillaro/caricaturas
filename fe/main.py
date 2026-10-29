@@ -123,7 +123,11 @@ async def product_page(request: Request, slug: str):
     if len(related) < 3:
         related += [card(x) for x in await db.products() if x.get("bestseller") and x["slug"] != slug and x not in related][: 3 - len(related)]
     revs = await reviews_for(slug)
-    return T.TemplateResponse(request, "product.html", ctx(request, p=p, sizes=sizes, frames=frames, prices=json.dumps(prices), c=c, related=related, reviews=revs,
+    jsonld = json.dumps({"@context": "https://schema.org", "@type": "Product", "name": p["title"], "description": c.get("intro") or "",
+                         "image": [i["url"] for i in (p.get("images") or [])][:6], "brand": {"@type": "Brand", "name": config.BRAND}, "sku": p["slug"],
+                         "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": p["from_price"], "highPrice": max(prices.values()),
+                                    "availability": "https://schema.org/InStock", "url": f"{config.BASE_URL}/cuadro/{p['slug']}"}}, ensure_ascii=False).replace("</", "<\\/")
+    return T.TemplateResponse(request, "product.html", ctx(request, jsonld=jsonld, p=p, sizes=sizes, frames=frames, prices=json.dumps(prices), c=c, related=related, reviews=revs,
                                                     title=f"{p['title']} · Cuadro religioso moderno · {config.BRAND}", description=(c.get("intro") or "")[:155],
                                                     og_image=p.get("img")))
 

@@ -365,7 +365,7 @@ def print_file(art: Image.Image, kind: str, size_key: str, frame: str) -> bytes:
     a_mm, b_mm = sizes[size_key]
     horiz = art.width >= art.height
     w_mm, h_mm = (b_mm, a_mm) if horiz else (a_mm, b_mm)
-    bleed = 40 if (kind == "lienzo" and frame == "none") else 5  # canto envuelto vs. borde
+    bleed = 49 if kind == "lienzo" else 4  # Gelato lienzo slim: 34 mm canto + 15 mm; lámina: 4 mm
     dpi = 150
     W = int((w_mm + 2 * bleed) / 25.4 * dpi); H = int((h_mm + 2 * bleed) / 25.4 * dpi)
     if kind == "lamina":
@@ -375,7 +375,7 @@ def print_file(art: Image.Image, kind: str, size_key: str, frame: str) -> bytes:
         inner = ImageOps.contain(art, (W - 2 * m, H - 2 * m), Image.LANCZOS)
         img.paste(inner, ((W - inner.width) // 2, (H - inner.height) // 2))
     else:
-        if bleed > 5:
+        if bleed > 4:
             # sangrado espejo para el canto (no se corta la escena)
             core = ImageOps.fit(art, (int(w_mm / 25.4 * dpi), int(h_mm / 25.4 * dpi)), Image.LANCZOS)
             b = int(bleed / 25.4 * dpi)

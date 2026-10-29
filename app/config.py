@@ -54,7 +54,7 @@ STYLE_PROMPT = env(
     "CABEZA ENORME, aproximadamente un tercio de la altura total de la figura, sobre un CUERPO "
     "PEQUEÑO y estilizado de cuerpo entero. La cara debe ser MUY fiel a la foto (misma forma de "
     "cara, ojos, nariz, boca, sonrisa, peinado, color de pelo y piel, gafas o barba si las tiene), "
-    "con los rasgos ligeramente exagerados con humor (sonrisa amplia, ojos expresivos). Sombreado "
+    "con los rasgos un poco más exagerados, en clave de caricatura de verdad: los rasgos más característicos de la persona (nariz, sonrisa, mentón, orejas, cejas, mofletes) algo agrandados con humor, ojos expresivos y sonrisa amplia, pero sin perder el parecido: tiene que reconocerse al primer vistazo. Sombreado "
     "pintado suave, colores cálidos y vivos, acabado brillante y detallado. La figura ocupa el "
     "centro de una escena completa y detallada. Sin texto (salvo un número de edad si la escena lo "
     "pide), sin marca de agua, sin marco. Composición vertical para imprimir en lienzo.",

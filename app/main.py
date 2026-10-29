@@ -166,13 +166,20 @@ async def admin_generate_images(token: str = "", limit: int = 10):
     done, errors = [], []
     for r in rows:
         try:
-            async with _sem:
-                art = await imaging.generate_from_text(r["scene_prompt"] or r["short_desc"])
-            mocks = imaging.make_mockups(art)
-            urls = {}
-            for k, data in mocks.items():
-                urls[k] = await catalog.upload_image(f"{r['slug']}/{k}.jpg", data)
-            await catalog._upsert("car_products", [{"slug": r["slug"], "image_url": urls["main"], "images": [urls["main"], urls["wall"], urls["brick"], urls["poster"]], "updated_at": "now()"}])
+            base = f"{catalog.SUPABASE_URL}/storage/v1/object/public/caricaturas/{r['slug']}"
+            import httpx as _hx
+            async with _hx.AsyncClient(timeout=20) as c:
+                already = (await c.head(f"{base}/poster.jpg")).status_code == 200
+            if already:  # ya generada en un intento anterior: solo falta apuntar la fila
+                urls = {k: f"{base}/{k}.jpg" for k in ("main", "wall", "brick", "poster")}
+            else:
+                async with _sem:
+                    art = await imaging.generate_from_text(r["scene_prompt"] or r["short_desc"])
+                mocks = imaging.make_mockups(art)
+                urls = {}
+                for k, data in mocks.items():
+                    urls[k] = await catalog.upload_image(f"{r['slug']}/{k}.jpg", data)
+            await catalog._patch("car_products", "slug", r["slug"], {"image_url": urls["main"], "images": [urls["main"], urls["wall"], urls["brick"], urls["poster"]], "updated_at": "now()"})
             done.append(r["slug"])
         except Exception as e:  # noqa: BLE001
             errors.append({"slug": r["slug"], "error": str(e)[:200]})

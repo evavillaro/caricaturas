@@ -69,6 +69,14 @@ async def _upsert(table: str, rows: list[dict]):
         raise RuntimeError(f"supabase {r.status_code}: {r.text[:300]}")
 
 
+async def _patch(table: str, key: str, value: str, data: dict):
+    h = _headers(); h["Prefer"] = "return=minimal"
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.patch(f"{SUPABASE_URL}/rest/v1/{table}", headers=h, params={key: f"eq.{value}"}, json=data)
+    if r.status_code >= 300:
+        raise RuntimeError(f"supabase {r.status_code}: {r.text[:300]}")
+
+
 async def upload_image(path: str, data: bytes, content_type: str = "image/jpeg") -> str:
     h = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": content_type, "x-upsert": "true"}
     async with httpx.AsyncClient(timeout=120) as c:

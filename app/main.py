@@ -12,6 +12,7 @@ Rutas:
   GET  /admin/orders          listado de pedidos (ADMIN_TOKEN)
 """
 import asyncio
+import json
 import io
 import logging
 import time
@@ -73,11 +74,23 @@ def _page(name: str, **extra: str) -> HTMLResponse:
         "PAGE_TITLE": f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo",
         "H1": "Caricatura personalizada a partir de una foto",
         "INTRO": "Tu idea. Tu foto. Un regalo personal. Elige la escena, sube la foto y mira tu caricatura antes de pagar.",
+        "HEAD_EXTRA": f'<link rel="canonical" href="{config.BASE_URL}/">',
     }
     repl.update(extra)
     for k, v in repl.items():
         html = html.replace("{{" + k + "}}", v)
     return HTMLResponse(html)
+
+
+@app.middleware("http")
+async def canonical_host(request: Request, call_next):
+    """Si entran por *.onrender.com, redirige al dominio propio (salvo webhooks, API y admin)."""
+    host = request.headers.get("host", ""); path = request.url.path
+    if host.endswith(".onrender.com") and config.BASE_URL.startswith("https://") and ".onrender.com" not in config.BASE_URL \
+            and not path.startswith(("/api/", "/admin", "/static/")):
+        q = ("?" + request.url.query) if request.url.query else ""
+        return RedirectResponse(config.BASE_URL + path + q, status_code=301)
+    return await call_next(request)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -92,7 +105,7 @@ async def category_page(category: str):
     cat = next((c for c in cols if c["slug"] == category), None)
     if not cat:
         raise HTTPException(404)
-    return _page("index.html", CATEGORY=category, PAGE_TITLE=f"{cat['h1'] or cat['title']} · {config.BRAND_NAME}", H1=cat["h1"] or cat["title"], INTRO=cat.get("intro") or "")
+    return _page("index.html", CATEGORY=category, HEAD_EXTRA=f'<link rel="canonical" href="{config.BASE_URL}/coleccion/{category}">', PAGE_TITLE=f"{cat['h1'] or cat['title']} · {config.BRAND_NAME}", H1=cat["h1"] or cat["title"], INTRO=cat.get("intro") or "")
 
 
 @app.get("/p/{slug}", response_class=HTMLResponse)
@@ -100,7 +113,15 @@ async def product_page(slug: str):
     s = await catalog.get_product(slug)
     if not s:
         raise HTTPException(404)
-    return _page("producto.html", SCENE_ID=s["slug"], SCENE_NAME=s["title"], SCENE_DESC=s.get("short_desc") or "", SCENE_HTML=s.get("description_html") or "", PAGE_TITLE=f"{s['title']} · {config.BRAND_NAME}")
+    import html as _h
+    url = f"{config.BASE_URL}/p/{s['slug']}"
+    ld = json.dumps({"@context": "https://schema.org", "@type": "Product", "name": s["title"], "description": s.get("short_desc") or "",
+                     "image": (s.get("images") or [s.get("image_url")])[:6], "brand": {"@type": "Brand", "name": config.BRAND_NAME}, "sku": s["slug"],
+                     "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": config.PRICE_DIGITAL_CENTS / 100,
+                                "highPrice": max(v["cents"] for v in fulfilment.PRODUCTS.values()) / 100, "availability": "https://schema.org/InStock", "url": url}},
+                    ensure_ascii=False).replace("</", "<\\/")
+    head = f'<link rel="canonical" href="{url}"><meta property="og:title" content="{_h.escape(s["title"])}"><meta property="og:image" content="{_h.escape(s.get("image_url") or "")}"><script type="application/ld+json">{ld}</script>'
+    return _page("producto.html", HEAD_EXTRA=head, SCENE_ID=s["slug"], SCENE_NAME=s["title"], SCENE_DESC=s.get("short_desc") or "", SCENE_HTML=s.get("description_html") or "", PAGE_TITLE=f"{s['title']} · {config.BRAND_NAME}")
 
 
 @app.get("/api/scenes")

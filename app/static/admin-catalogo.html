@@ -16,7 +16,7 @@
   <pre id="out3"></pre>
   <h3>2. Generar imágenes de catálogo</h3>
   <p class="hint">Genera la caricatura de muestra de cada producto (≈ 0,10-0,20 € cada una) más mockups de pared, ladrillo y póster, y las sube a Supabase. De 10 en 10.</p>
-  <div class="row"><button class="btn btn-primary" id="gen">Generar 10</button><button class="btn btn-ghost" id="genall">Generar todas las que falten</button><span id="genst"></span></div>
+  <div class="row"><button class="btn btn-primary" id="gen">Generar 10 (antes/después)</button><button class="btn btn-ghost" id="genall">Generar todas las que falten</button><button class="btn btn-ghost" id="redo">Rehacer las 12 sin antes/después</button><span id="genst"></span></div>
   <pre id="out2"></pre>
 </div>
 </section></main>
@@ -26,9 +26,10 @@ async function status(){ const s = await (await fetch('/admin/catalog-status?tok
 async function imp(start, limit){ const r = await fetch(`/admin/import?token=${token}&start=${start}&limit=${limit}`, {method:'POST'}); const d = await r.json(); $('#out1').textContent = JSON.stringify(d,null,1) + '\n' + $('#out1').textContent; await status(); return d; }
 $('#imp').onclick = () => imp(+$('#start').value, +$('#limit').value);
 $('#impall').onclick = async () => { for (let s=0; s<436; s+=50){ $('#start').value = s; const d = await imp(s, 50); if (d.detail) break; } };
-async function gen(){ $('#genst').textContent = 'generando…'; const r = await fetch(`/admin/generate-images?token=${token}&limit=10`, {method:'POST'}); const d = await r.json(); $('#out2').textContent = JSON.stringify(d,null,1) + '\n' + $('#out2').textContent; $('#genst').textContent=''; await status(); return d; }
-$('#gen').onclick = gen;
+async function gen(redo){ $('#genst').textContent = 'generando…'; const r = await fetch(`/admin/generate-images?token=${token}&limit=10&redo=${redo?'true':'false'}`, {method:'POST'}); const d = await r.json(); $('#out2').textContent = JSON.stringify(d,null,1) + '\n' + $('#out2').textContent; $('#genst').textContent=''; await status(); return d; }
+$('#gen').onclick = () => gen(false);
+$('#redo').onclick = async () => { while(true){ const d = await gen(true); if(!d.generated || !d.generated.length) break; } };
 $('#dedupe').onclick = async () => { $('#dedst').textContent='trabajando…'; const r = await fetch('/admin/dedupe-titles?token='+token,{method:'POST'}); $('#out3').textContent = JSON.stringify(await r.json(),null,1); $('#dedst').textContent=''; };
-$('#genall').onclick = async () => { while(true){ const d = await gen(); if(!d.generated || !d.generated.length) break; } };
+$('#genall').onclick = async () => { while(true){ const d = await gen(false); if(!d.generated || !d.generated.length) break; } };
 status();
 </script></body></html>

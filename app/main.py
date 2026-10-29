@@ -158,12 +158,17 @@ async def admin_import(token: str = "", start: int = 0, limit: int = 50):
 
 
 @app.post("/admin/generate-images")
-async def admin_generate_images(token: str = "", limit: int = 10):
+async def admin_generate_images(token: str = "", limit: int = 10, before_after: bool = True, redo: bool = False):
     """Genera la imagen de catálogo (y mockups) de los productos que aún no la tienen."""
     _admin(token)
     if not catalog.ENABLED:
         raise HTTPException(400, "Supabase no configurado")
-    rows = await catalog._get("car_products", {"select": "slug,scene_prompt,short_desc", "image_url": "is.null", "active": "eq.true", "order": "sort.asc", "limit": str(limit)})
+    params = {"select": "slug,scene_prompt,short_desc,images", "active": "eq.true", "order": "sort.asc", "limit": str(limit)}
+    if not redo:
+        params["image_url"] = "is.null"
+    rows = await catalog._get("car_products", params)
+    if redo:  # rehacer solo las que no tienen antes/después (5 imágenes)
+        rows = [x for x in rows if len(x.get("images") or []) < 5]
     done, errors = [], []
     for r in rows:
         try:
@@ -171,16 +176,27 @@ async def admin_generate_images(token: str = "", limit: int = 10):
             import httpx as _hx
             async with _hx.AsyncClient(timeout=20) as c:
                 already = (await c.head(f"{base}/poster.jpg")).status_code == 200
-            if already:  # ya generada en un intento anterior: solo falta apuntar la fila
+            if already and not before_after:  # ya generada: solo falta apuntar la fila
                 urls = {k: f"{base}/{k}.jpg" for k in ("main", "wall", "brick", "poster")}
+                urls["art"] = urls["main"]
             else:
+                prompt = r["scene_prompt"] or r["short_desc"]
                 async with _sem:
-                    art = await imaging.generate_from_text(r["scene_prompt"] or r["short_desc"])
-                mocks = imaging.make_mockups(art)
+                    if before_after:
+                        photo = await imaging.generate_photo(prompt)
+                        art = await imaging.generate(photo, "", prompt, "", quality=config.env("CATALOG_IMAGE_QUALITY", "medium"))
+                    else:
+                        photo = None
+                        art = await imaging.generate_from_text(prompt)
+                mocks = imaging.make_mockups(art, photo)
+                if photo is not None:
+                    pj = photo.copy(); pj.thumbnail((600, 600))
+                    mocks["photo"] = imaging._jpeg(pj, 85)
                 urls = {}
                 for k, data in mocks.items():
                     urls[k] = await catalog.upload_image(f"{r['slug']}/{k}.jpg", data)
-            await catalog._patch("car_products", "slug", r["slug"], {"image_url": urls["main"], "images": [urls["main"], urls["wall"], urls["brick"], urls["poster"]], "updated_at": "now()"})
+            imgs = [urls["main"], urls.get("art", urls["main"]), urls["wall"], urls["brick"], urls["poster"]]
+            await catalog._patch("car_products", "slug", r["slug"], {"image_url": urls["main"], "images": imgs, "updated_at": "now()"})
             done.append(r["slug"])
         except Exception as e:  # noqa: BLE001
             errors.append({"slug": r["slug"], "error": str(e)[:200]})

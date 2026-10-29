@@ -31,7 +31,7 @@ def _to_png_bytes(img: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str = "", dedication: str = "") -> Image.Image:
+async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str = "", dedication: str = "", quality: str | None = None) -> Image.Image:
     if config.DEMO_MODE:
         return _demo_caricature(photo)
     prompt = config.STYLE_PROMPT
@@ -47,7 +47,7 @@ async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str
         "prompt": prompt,
         "images": [{"image_url": data_url}],
         "size": config.IMAGE_SIZE,
-        "quality": config.IMAGE_QUALITY,
+        "quality": quality or config.IMAGE_QUALITY,
         "n": 1,
     }
     headers = {"Authorization": f"Bearer {config.OPENAI_API_KEY}"}
@@ -80,17 +80,75 @@ async def generate_from_text(scene_prompt: str) -> Image.Image:
     return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
 
 
+async def generate_photo(scene_prompt: str) -> Image.Image:
+    """Foto 'realista' de una persona inventada, para el antes/después del catálogo."""
+    prompt = (
+        "Fotografía realista tipo selfie o retrato de móvil, luz natural, de una persona genérica "
+        "sonriente mirando a cámara, plano medio, fondo cotidiano neutro (calle, casa). Sin texto. "
+        "La persona debe encajar con esta descripción de producto (edad, género, estilo): " + scene_prompt[:300]
+    )
+    if config.DEMO_MODE:
+        img = Image.new("RGB", (1024, 1024), (200, 210, 230)); ImageDraw.Draw(img).text((40, 40), "FOTO DEMO", fill=(60, 60, 60), font=_font(60)); return img
+    body = {"model": config.OPENAI_IMAGE_MODEL, "prompt": prompt, "size": "1024x1024", "quality": config.env("CATALOG_PHOTO_QUALITY", "medium"), "n": 1}
+    async with httpx.AsyncClient(timeout=240) as client:
+        r = await client.post("https://api.openai.com/v1/images/generations", headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}"}, json=body)
+    if r.status_code != 200:
+        raise RuntimeError(f"OpenAI {r.status_code}: {r.text[:300]}")
+    return Image.open(io.BytesIO(base64.b64decode(r.json()["data"][0]["b64_json"]))).convert("RGB")
+
+
+def compose_main(art: Image.Image, photo: Image.Image, label: str = "tu foto") -> Image.Image:
+    """Imagen principal de catálogo como la tienda de referencia: lienzo apoyado a la izquierda,
+    móvil con la foto de origen a la derecha, texto y flecha hacia el cuadro."""
+    W = H = 1200
+    bg = Image.new("RGB", (W, H), (236, 231, 222))
+    ImageDraw.Draw(bg).rectangle([0, 1010, W, H], fill=(205, 190, 170))
+    a = art.copy(); a.thumbnail((900, 1200)); w, h = a.size
+    scale = min((W * 0.52) / w, (H * 0.76) / h)
+    cw, ch = int(w * scale), int(h * scale)
+    piece = a.resize((cw, ch), Image.LANCZOS)
+    x, y = int(W * 0.09), int(H * 0.10)
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0)); sd = ImageDraw.Draw(shadow)
+    sd.rectangle([x + 18, y + 24, x + cw + 18, y + ch + 24], fill=(0, 0, 0, 110))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(22))
+    bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
+    edge = int(cw * 0.025)
+    side = piece.crop((cw - edge, 0, cw, ch)).resize((edge, ch)).point(lambda v: int(v * 0.6))
+    bg.paste(side, (x + cw, y + int(edge * 0.6)))
+    bg.paste(piece, (x, y))
+    # móvil
+    pw = int(W * 0.19); ph = int(pw * 2.05)
+    px, py = int(W * 0.72), int(H * 0.50)
+    d = ImageDraw.Draw(bg)
+    d.rounded_rectangle([px, py, px + pw, py + ph], radius=int(pw * 0.14), fill=(22, 22, 22))
+    inner = ImageOps.fit(photo, (pw - 18, ph - 18), method=Image.LANCZOS)
+    mask = Image.new("L", inner.size, 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, inner.width - 1, inner.height - 1], radius=int(pw * 0.10), fill=255)
+    bg.paste(inner, (px + 9, py + 9), mask)
+    d.rounded_rectangle([px + pw * 0.38, py + 4, px + pw * 0.62, py + 10], radius=3, fill=(70, 70, 70))
+    # texto y flecha
+    font = _font(int(W * 0.045))
+    tx, ty = px - int(W * 0.02), int(H * 0.30)
+    d.text((tx, ty), label, fill=(40, 40, 40), font=font)
+    ax0, ay0 = tx + int(W * 0.04), ty + int(H * 0.065)
+    ax1, ay1 = x + cw + int(W * 0.03), int(H * 0.42)
+    mid = ((ax0 + ax1) // 2, ay0 + int(H * 0.03))
+    d.line([(ax0, ay0), mid, (ax1, ay1)], fill=(40, 40, 40), width=5, joint="curve")
+    d.polygon([(ax1 - int(W * 0.012), ay1 - int(H * 0.018)), (ax1 - int(W * 0.004), ay1 + int(H * 0.018)), (ax1 - int(W * 0.03), ay1 + int(H * 0.004))], fill=(40, 40, 40))
+    return bg
+
+
 def _jpeg(img: Image.Image, q: int = 86) -> bytes:
     buf = io.BytesIO(); img.save(buf, format="JPEG", quality=q); return buf.getvalue()
 
 
-def make_mockups(art: Image.Image) -> dict[str, bytes]:
+def make_mockups(art: Image.Image, photo: Image.Image | None = None) -> dict[str, bytes]:
     """Mockups baratos sin IA: lienzo con canto sobre pared lisa, sobre pared de ladrillo
     claro y versión póster con sombra. Devuelve JPEGs para web."""
     art = art.copy(); art.thumbnail((900, 1200))
     w, h = art.size
     out = {}
-    out["main"] = _jpeg(art, 88)
+    out["art"] = _jpeg(art, 88)
+    rendered = {}
 
     def canvas_on_wall(bg: Image.Image, label: str):
         W, H = bg.size
@@ -107,6 +165,7 @@ def make_mockups(art: Image.Image) -> dict[str, bytes]:
         side = piece.crop((cw - edge, 0, cw, ch)).resize((edge, ch)).point(lambda v: int(v * 0.6))
         bg.paste(side, (x + cw, y + int(edge * 0.6)))
         bg.paste(piece, (x, y))
+        rendered[label] = bg
         out[label] = _jpeg(bg, 86)
 
     wall = Image.new("RGB", (1200, 1200), (236, 231, 222))
@@ -132,6 +191,11 @@ def make_mockups(art: Image.Image) -> dict[str, bytes]:
     mask = Image.new("L", piece.size, 255)
     poster_bg.paste(piece, (px, py))
     out["poster"] = _jpeg(poster_bg, 86)
+    # imagen principal: lienzo en pared gris claro con el móvil "tu foto" (como la tienda de referencia)
+    if photo is not None:
+        out["main"] = _jpeg(compose_main(art, photo), 86)
+    else:
+        out["main"] = out["art"]
     return out
 
 

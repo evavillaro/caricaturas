@@ -593,7 +593,7 @@ async def api_checkout(request: Request):
     if product not in fulfilment.PRODUCTS:
         raise HTTPException(400, "Producto desconocido.")
     meta = storage.read_meta(job_id)
-    if not meta or not (storage.job_dir(job_id) / "result.png").exists():
+    if not meta or not storage.ensure_file(job_id, "result.png").exists():
         raise HTTPException(404, "La caricatura ha caducado. Vuelve a subir la foto.")
     try:
         url = fulfilment.create_checkout(job_id, product)

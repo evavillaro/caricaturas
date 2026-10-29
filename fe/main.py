@@ -44,7 +44,7 @@ T.env.filters["eur"] = eur
 
 def ctx(request: Request, **kw) -> dict:
     base = {
-        "request": request, "brand": config.BRAND, "menu": MENU, "base_url": config.BASE_URL, "email": config.CONTACT_EMAIL,
+        "request": request, "brand": config.BRAND, "tagline": config.TAGLINE, "menu": MENU, "base_url": config.BASE_URL, "email": config.CONTACT_EMAIL,
         "discount": config.WELCOME_DISCOUNT_PCT, "year": time.strftime("%Y"),
         "ids": {"ga4": config.GA4_ID, "gads": config.GADS_ID, "gads_label": config.GADS_LABEL, "meta": config.META_PIXEL_ID,
                 "clarity": config.CLARITY_ID, "pinterest": config.PINTEREST_TAG_ID},
@@ -80,7 +80,7 @@ async def home(request: Request):
     best = [card(p) for p in prods if p.get("bestseller")][:20]
     hero = next((i["url"] for p in prods if p.get("bestseller") for i in (p.get("images") or []) if i.get("kind") == "room"), None)
     revs = await reviews_for(limit=20)
-    return T.TemplateResponse(request, "home.html", ctx(request, best=best, hero=hero, reviews=revs, title=f"Cuadros religiosos modernos · {config.BRAND}",
+    return T.TemplateResponse(request, "home.html", ctx(request, best=best, hero=hero, reviews=revs, title=f"{config.BRAND} · {config.TAGLINE} · Cuadros religiosos modernos",
                                                  description="Cuadros religiosos modernos en lienzo y láminas enmarcadas: arte cristiano y católico en tonos neutros para casas modernas. Envío gratis."))
 
 

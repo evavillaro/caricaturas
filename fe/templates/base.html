@@ -30,7 +30,7 @@ window.__IDS = {{ ids|tojson }};
 <div class="announce"><div class="announce-track"><span>Envío gratis a toda España</span><span>Listo para colgar</span><span>Devolución en 30 días</span><span>Impreso en Europa con tintas de archivo</span></div></div>
 <header class="site">
   <button class="burger" aria-label="Menú" onclick="document.body.classList.toggle('menu-open')"><span></span><span></span><span></span></button>
-  <a class="logo" href="/">{{ brand }}</a>
+  <a class="logo-wrap" href="/"><span class="logo">{{ brand }}</span><span class="tagline">{{ tagline }}</span></a>
   <div class="hicons">
     <a href="/encuentra-tu-cuadro" class="hlink">¿Cuál es tu cuadro?</a>
     <a href="/carrito" class="cart-link" aria-label="Carrito">
@@ -58,7 +58,7 @@ window.__IDS = {{ ids|tojson }};
       <a href="/p/envios">Política de envíos</a><a href="/p/devoluciones">Devoluciones y cambios</a><a href="/p/privacidad">Política de privacidad</a>
       <a href="/p/condiciones">Condiciones de venta</a><a href="/p/aviso-legal">Aviso legal</a>
     </div>
-    <div class="f-col f-brand"><span class="logo small">{{ brand }}</span><p>Arte cristiano y católico para casas modernas.</p></div>
+    <div class="f-col f-brand"><span class="logo small">{{ brand }}</span><p>{{ tagline }}</p></div>
     <div class="f-col">
       <p class="f-title">{{ discount }} % en tu primer cuadro</p>
       <form class="nl" onsubmit="return feSubscribe(event,'footer')"><input type="email" name="email" placeholder="Tu email" required><button>Unirme</button></form>

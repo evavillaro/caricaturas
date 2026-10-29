@@ -6,9 +6,10 @@ def env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
-BRAND = env("BRAND_NAME", "Fe Moderna")
+BRAND = env("BRAND_NAME", "Cuadros con Alma")
+TAGLINE = env("TAGLINE", "Arte cristiano contemporáneo")
 BASE_URL = env("BASE_URL", "http://localhost:8000").rstrip("/")
-CONTACT_EMAIL = env("CONTACT_EMAIL", "hola@femoderna.com")
+CONTACT_EMAIL = env("CONTACT_EMAIL", "hola@cuadrosconalma.com")
 ADMIN_TOKEN = env("ADMIN_TOKEN")
 WELCOME_DISCOUNT_PCT = int(env("WELCOME_DISCOUNT_PCT", "15"))
 STRIPE_COUPON = env("STRIPE_WELCOME_COUPON")  # id de cupón de Stripe del 15 % (opcional)

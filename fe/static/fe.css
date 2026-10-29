@@ -127,3 +127,5 @@ body.menu-open .megamenu{display:block}
 .popup button[type=submit],.popup form button{padding:13px;background:var(--ink);color:#fff;border:0}
 .page h2{font-size:1.6rem;margin:30px 0 6px}.page .lead{font-family:var(--serif);font-size:1.5rem}
 .perks{list-style:none;padding:0;margin:0 0 12px}.perks li{padding:7px 0 7px 22px;border-top:1px solid var(--line);position:relative}.perks li::before{content:'';position:absolute;left:4px;top:15px;width:8px;height:8px;border:1px solid var(--beige-d);transform:rotate(45deg)}
+.logo-wrap{display:flex;flex-direction:column;align-items:center;text-decoration:none;gap:0}.tagline{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+@media(max-width:600px){.logo{font-size:1.3rem}.tagline{font-size:.56rem}.hlink{display:none}}

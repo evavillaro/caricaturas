@@ -52,6 +52,9 @@ async def canonical_host(request: Request, call_next):
     """Si entran por *.onrender.com, redirige al dominio propio (salvo webhooks y admin)."""
     host = request.headers.get("host", "")
     path = request.url.path
+    if request.headers.get("x-forwarded-proto") == "http" and not host.startswith(("localhost", "127.")):
+        q = ("?" + request.url.query) if request.url.query else ""
+        return RedirectResponse(f"https://{host}{path}{q}", status_code=301)
     if host.endswith(".onrender.com") and config.BASE_URL.startswith("https://") and ".onrender.com" not in config.BASE_URL \
             and not path.startswith(("/api/", "/admin", "/static/")):
         q = ("?" + request.url.query) if request.url.query else ""

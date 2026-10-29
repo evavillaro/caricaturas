@@ -13,9 +13,73 @@ import shutil
 import time
 from pathlib import Path
 
+import httpx
+
 from . import config
 
 JOBS = config.DATA_DIR / "jobs"
+
+# --- Copia persistente en Supabase de los pedidos (el disco de Render se borra al reiniciar) ---
+SB_URL = config.env("SUPABASE_URL").rstrip("/")
+SB_KEY = config.env("SUPABASE_SERVICE_KEY") or config.env("SUPABASE_KEY")
+SB_ON = bool(SB_URL and SB_KEY)
+BUCKET = "car-orders"
+
+
+def _h(ct: str = "application/json") -> dict:
+    return {"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}", "Content-Type": ct}
+
+
+def _sb_save(job_id: str, meta: dict) -> None:
+    if not SB_ON:
+        return
+    try:
+        h = _h(); h["Prefer"] = "resolution=merge-duplicates,return=minimal"
+        httpx.post(f"{SB_URL}/rest/v1/car_orders", headers=h, json=[{"job_id": job_id, "meta": meta, "updated_at": "now()"}], timeout=20)
+    except Exception:
+        pass
+
+
+def _sb_load(job_id: str) -> dict | None:
+    if not SB_ON:
+        return None
+    try:
+        r = httpx.get(f"{SB_URL}/rest/v1/car_orders", headers=_h(), params={"job_id": f"eq.{job_id}", "select": "meta"}, timeout=20)
+        rows = r.json() if r.status_code == 200 else []
+        return rows[0]["meta"] if rows else None
+    except Exception:
+        return None
+
+
+def persist(job_id: str) -> None:
+    """Al iniciar el pago: sube la caricatura y la vista previa y marca el pedido como persistente."""
+    if not SB_ON:
+        return
+    d = job_dir(job_id)
+    for name, ct in (("result.png", "image/png"), ("preview.jpg", "image/jpeg")):
+        f = d / name
+        if f.exists():
+            try:
+                h = _h(ct); h["x-upsert"] = "true"
+                httpx.post(f"{SB_URL}/storage/v1/object/{BUCKET}/{job_id}/{name}", headers=h, content=f.read_bytes(), timeout=120)
+            except Exception:
+                pass
+    update_meta(job_id, persist=True)
+
+
+def ensure_file(job_id: str, name: str) -> Path:
+    """Devuelve la ruta local del archivo; si el disco se borró, lo recupera de Supabase."""
+    p = job_dir(job_id) / name
+    if p.exists() or not SB_ON:
+        return p
+    try:
+        r = httpx.get(f"{SB_URL}/storage/v1/object/{BUCKET}/{job_id}/{name}", headers=_h(), timeout=120)
+        if r.status_code == 200:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(r.content)
+    except Exception:
+        pass
+    return p
 
 
 def new_job_id() -> str:
@@ -39,7 +103,12 @@ def create_job() -> tuple[str, Path]:
 def read_meta(job_id: str) -> dict | None:
     p = job_dir(job_id) / "meta.json"
     if not p.exists():
-        return None
+        meta = _sb_load(job_id)
+        if meta is None:
+            return None
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(meta, ensure_ascii=False, indent=1))
+        return meta
     return json.loads(p.read_text())
 
 
@@ -48,6 +117,8 @@ def write_meta(job_id: str, meta: dict) -> None:
     tmp = p.with_suffix(".tmp")
     tmp.write_text(json.dumps(meta, ensure_ascii=False, indent=1))
     tmp.replace(p)
+    if meta.get("persist"):
+        _sb_save(job_id, meta)
 
 
 def update_meta(job_id: str, **changes) -> dict:

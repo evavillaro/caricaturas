@@ -377,6 +377,7 @@ async def gracias(job: str = Query(...), session_id: str = "", demo: str = ""):
     meta = storage.read_meta(job) or {}
     if meta.get("paid"):
         await fulfilment.fulfil(job)
+        await fulfilment.notify_paid(job)
     return _page("gracias.html")
 
 
@@ -431,7 +432,7 @@ async def api_generate(photo: UploadFile = File(...), notes: str = Form(""), sce
 @app.get("/api/preview/{job_id}.jpg")
 async def api_preview(job_id: str):
     try:
-        p = storage.job_dir(job_id) / "preview.jpg"
+        p = storage.ensure_file(job_id, "preview.jpg")
     except ValueError:
         raise HTTPException(404)
     if not p.exists():
@@ -478,6 +479,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         if job_id and storage.read_meta(job_id):
             fulfilment.mark_paid(job_id, session)
             await fulfilment.fulfil(job_id)
+            await fulfilment.notify_paid(job_id)
     return {"ok": True}
 
 
@@ -485,7 +487,7 @@ def _paid_result(job_id: str) -> Path:
     meta = storage.read_meta(job_id)
     if not meta or not meta.get("paid"):
         raise HTTPException(403, "Este archivo solo está disponible tras el pago.")
-    p = storage.job_dir(job_id) / "result.png"
+    p = storage.ensure_file(job_id, "result.png")
     if not p.exists():
         raise HTTPException(404, "El archivo ya ha caducado.")
     return p
@@ -506,6 +508,21 @@ async def api_print_file(job_id: str):
     mm = prod.get("mm", (300, 400))
     data = imaging.prepare_print_file(Image.open(p), mm[0], mm[1], prod.get("bleed", 10))
     return Response(data, media_type="image/png")
+
+
+@app.post("/api/gelato/webhook")
+async def gelato_webhook(request: Request, key: str = ""):
+    if not config.env("GELATO_WEBHOOK_KEY") or key != config.env("GELATO_WEBHOOK_KEY"):
+        raise HTTPException(403)
+    return await fulfilment.gelato_event(await request.json())
+
+
+@app.post("/admin/test-email")
+async def admin_test_email(token: str = "", to: str = ""):
+    _admin(token)
+    from . import mail
+    ok = await mail.send(to or mail.ADMIN, "Prueba de email de Caricaturea", ["Si te llega esto, los emails de pedidos funcionan."])
+    return {"smtp": mail.ENABLED, "sent": ok}
 
 
 @app.get("/api/status/{job_id}")

@@ -3,7 +3,7 @@ import time
 
 import httpx
 
-from . import config, storage
+from . import config, mail, storage
 
 P = config.PRICES_CENTS
 PRODUCTS = {
@@ -44,6 +44,7 @@ def create_checkout(job_id: str, product: str) -> str:
     """Devuelve la URL de pago. En demo (sin Stripe) devuelve la página de éxito directamente."""
     p = PRODUCTS[product]
     storage.update_meta(job_id, product=product, status="checkout")
+    storage.persist(job_id)
     if not config.PAYMENTS_ENABLED:
         storage.update_meta(job_id, paid=True, paid_at=time.time(), payment="demo", status="paid")
         return f"{config.BASE_URL}/gracias?job={job_id}&demo=1"
@@ -163,6 +164,64 @@ async def fulfil(job_id: str) -> dict:
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(config.GELATO_ORDERS_URL, json=payload, headers={"X-API-KEY": config.GELATO_API_KEY})
     if r.status_code >= 300:
+        await mail.admin_alert(f"Gelato ha rechazado el pedido {job_id}", r.text[:800])
         return storage.update_meta(job_id, status="print_error", gelato_error=r.text[:500])
     data = r.json()
     return storage.update_meta(job_id, status="sent_to_print", gelato_order=data.get("id"), gelato_status=data.get("fulfillmentStatus"))
+
+
+async def notify_once(job_id: str, key: str, coro_fn, *args):
+    meta = storage.read_meta(job_id) or {}
+    sent = dict(meta.get("emails") or {})
+    if sent.get(key):
+        return
+    if await coro_fn(*args):
+        sent[key] = True
+        storage.update_meta(job_id, emails=sent)
+
+
+async def notify_paid(job_id: str):
+    meta = storage.read_meta(job_id) or {}
+    if not meta.get("paid"):
+        return
+    p = PRODUCTS.get(meta.get("product") or "") or {}
+    await notify_once(job_id, "confirmed", mail.order_confirmed, job_id, meta, p.get("name", "Caricatura"), p.get("cents", 0), not p.get("ships", True))
+
+
+STATUS = {"shipped": "shipped", "delivered": "delivered", "canceled": "canceled", "cancelled": "canceled", "failed": "print_error",
+          "in_production": "in_production", "printed": "in_production", "returned": "returned", "on_hold": "on_hold"}
+
+
+async def gelato_event(ev: dict) -> dict:
+    ref = ev.get("orderReferenceId") or ""
+    if not ref or ref.startswith("FM"):
+        return {"ignored": ref}
+    try:
+        meta = storage.read_meta(ref)
+    except ValueError:
+        return {"ignored": ref}
+    if not meta:
+        return {"unknown": ref}
+    st = STATUS.get((ev.get("fulfillmentStatus") or "").lower())
+    tracking = None
+    for it in ev.get("items") or []:
+        for f in it.get("fulfillments") or []:
+            if f.get("trackingUrl") or f.get("trackingCode"):
+                tracking = {"url": f.get("trackingUrl"), "code": f.get("trackingCode"), "carrier": f.get("shipmentMethodName")}
+    if ev.get("trackingUrl") or ev.get("trackingCode"):
+        tracking = {"url": ev.get("trackingUrl"), "code": ev.get("trackingCode"), "carrier": ev.get("shipmentMethodName")}
+    ch = {}
+    if st:
+        ch["status"] = st; ch["gelato_status"] = ev.get("fulfillmentStatus")
+    if tracking:
+        ch["tracking"] = tracking
+    if ch:
+        meta = storage.update_meta(ref, **ch)
+    t = meta.get("tracking") or {}
+    if t.get("url"):
+        await notify_once(ref, "shipped", mail.order_shipped, meta, t.get("url"), t.get("carrier"))
+    if meta.get("status") == "delivered":
+        await notify_once(ref, "delivered", mail.order_delivered, meta)
+    if meta.get("status") in ("print_error", "canceled", "on_hold", "returned"):
+        await mail.admin_alert(f"Pedido {ref}: {meta.get('status')}", str(ev)[:1500])
+    return {"ok": True, "status": meta.get("status")}

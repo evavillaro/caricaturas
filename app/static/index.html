@@ -67,6 +67,7 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
     <p class="rv-pick">Tu valoración: <span id="rvPick"></span></p>
     <div class="two"><input name="name" placeholder="Tu nombre (se publica así)" required maxlength="60"><input name="product" placeholder="¿Qué caricatura pediste? (opcional)" maxlength="120"></div>
     <textarea name="body" rows="4" placeholder="Cuéntanos qué tal" required maxlength="1500"></textarea>
+    <label class="rv-photo">📷 Añade una foto del cuadro o de la reacción (opcional) <input type="file" name="photo" accept="image/*"></label>
     <input type="hidden" name="rating" value="5">
     <button class="btn btn-primary">Enviar reseña</button>
     <p class="hint">Revisamos cada reseña antes de publicarla (solo para evitar spam). Se marcan como verificadas las de pedidos reales.</p>
@@ -189,12 +190,14 @@ async function loadReviews(){
   document.getElementById('rvCount').textContent = `Basado en ${list.length} reseña${list.length>1?'s':''}`;
   document.getElementById('rvBars').innerHTML = [5,4,3,2,1].map(n=>{ const c = list.filter(x=>x.rating===n).length; return `<div><span>${starsTxt(n)}</span><i><b style="width:${Math.round(100*c/list.length)}%"></b></i><em>${c}</em></div>`; }).join('');
   const esc = t => String(t||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  document.getElementById('reviews-grid').innerHTML = list.slice(0,12).map(x=>`<article class="review"><div class="rv-head"><span class="stars">${starsTxt(x.rating)}</span><small>${x.created_at.slice(0,10).split('-').reverse().join('/')}</small></div><p class="rv-name">${esc(x.name)}${x.verified?' <span class="badge">Compra verificada</span>':''}</p>${x.product?`<h4>${esc(x.product)}</h4>`:''}<p>${esc(x.body)}</p></article>`).join('');
+  document.getElementById('reviews-grid').innerHTML = list.slice(0,12).map(x=>`<article class="review"><div class="rv-head"><span class="stars">${starsTxt(x.rating)}</span><small>${x.created_at.slice(0,10).split('-').reverse().join('/')}</small></div><p class="rv-name">${esc(x.name)}${x.verified?' <span class="badge">Compra verificada</span>':''}</p>${x.photo_url?`<div class="rv-img"><img src="${x.photo_url}" alt="Foto de ${esc(x.name)}" loading="lazy"></div>`:''}${x.product?`<h4>${esc(x.product)}</h4>`:''}<p>${esc(x.body)}</p></article>`).join('');
 }
 async function sendReview(e){
-  e.preventDefault(); const f = e.target; const data = Object.fromEntries(new FormData(f)); data.rating = +data.rating;
-  data.job = new URLSearchParams(location.search).get('pedido') || '';
-  const r = await fetch('/api/reviews', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+  e.preventDefault(); const f = e.target; const fd = new FormData(f);
+  fd.set('job', new URLSearchParams(location.search).get('pedido') || '');
+  const b = f.querySelector('button:not([type=button])'); if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
+  const r = await fetch('/api/reviews', {method:'POST', body: fd});
+  if (b) { b.disabled = false; b.textContent = 'Enviar reseña'; }
   if (r.ok) { f.hidden = true; document.getElementById('rvThanks').hidden = false; } else alert('No se ha podido enviar. Inténtalo de nuevo.');
   return false;
 }

@@ -21,7 +21,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
+from PIL import Image, ImageOps
 
 from . import catalog, config, fulfilment, imaging, scenes, storage
 
@@ -632,31 +632,38 @@ async def api_print_file(job_id: str):
 async def api_reviews():
     if not catalog.ENABLED:
         return {"reviews": []}
-    rows = await catalog._get("car_reviews", {"select": "name,rating,body,product,verified,created_at", "approved": "eq.true", "order": "created_at.desc", "limit": "100"})
+    rows = await catalog._get("car_reviews", {"select": "name,rating,body,product,verified,created_at,photo_url", "approved": "eq.true", "order": "created_at.desc", "limit": "100"})
     return {"reviews": rows}
 
 
 @app.post("/api/reviews")
-async def api_review_create(request: Request):
-    b = await request.json()
-    name = str(b.get("name") or "").strip()[:60]; body = str(b.get("body") or "").strip()[:1500]
-    try:
-        rating = max(1, min(5, int(b.get("rating") or 5)))
-    except (TypeError, ValueError):
-        rating = 5
+async def api_review_create(name: str = Form(...), body: str = Form(...), rating: int = Form(5), product: str = Form(""), job: str = Form(""),
+                            photo: UploadFile | None = File(None)):
+    name = name.strip()[:60]; body = body.strip()[:1500]; rating = max(1, min(5, rating))
     if not name or len(body) < 3:
         raise HTTPException(400, "Faltan datos")
-    job = str(b.get("job") or "")[:40]
+    job = job[:40]
     verified = False
     if job:
         try:
             verified = bool((storage.read_meta(job) or {}).get("paid"))
         except ValueError:
             verified = False
-    row = {"name": name, "rating": rating, "body": body, "product": str(b.get("product") or "").strip()[:120] or None, "job_id": job or None, "verified": verified}
+    photo_url = None
+    if photo is not None and photo.filename:
+        data = await photo.read()
+        if len(data) > 15 * 1024 * 1024:
+            raise HTTPException(400, "La foto es demasiado grande")
+        try:
+            im = Image.open(io.BytesIO(data)); im = ImageOps.exif_transpose(im).convert("RGB"); im.thumbnail((1400, 1400))
+            import secrets as _s
+            photo_url = await catalog.upload_image(f"_reviews/{_s.token_hex(8)}.jpg", imaging._jpeg(im, 85))
+        except Exception:
+            raise HTTPException(400, "No se ha podido leer la foto")
+    row = {"name": name, "rating": rating, "body": body, "product": product.strip()[:120] or None, "job_id": job or None, "verified": verified, "photo_url": photo_url}
     await catalog._upsert("car_reviews", [row])
     from . import mail
-    await mail.admin_alert("Nueva reseña para revisar", f"{name} ({rating}★): {body}\n\nApruébala en {config.BASE_URL}/admin/reviews?token={config.ADMIN_TOKEN}")
+    await mail.admin_alert("Nueva reseña para revisar", f"{name} ({rating}★): {body}{' [con foto]' if photo_url else ''}\n\nApruébala en {config.BASE_URL}/admin/reviews?token={config.ADMIN_TOKEN}")
     return {"ok": True}
 
 
@@ -665,7 +672,7 @@ async def admin_reviews(token: str = ""):
     _admin(token)
     rows = await catalog._get("car_reviews", {"select": "*", "order": "created_at.desc", "limit": "200"})
     import html as _h
-    trs = "".join(f"<tr><td>{r['created_at'][:10]}</td><td>{_h.escape(r['name'])}</td><td>{'★'*r['rating']}</td><td>{_h.escape(r['body'])}</td><td>{'✓' if r['verified'] else ''}</td>"
+    trs = "".join(f"<tr><td>{r['created_at'][:10]}</td><td>{_h.escape(r['name'])}</td><td>{'★'*r['rating']}</td><td>{_h.escape(r['body'])}{f'<br><img src="{r["photo_url"]}" style="max-width:160px">' if r.get('photo_url') else ''}</td><td>{'✓' if r['verified'] else ''}</td>"
                   f"<td>{'publicada' if r['approved'] else 'pendiente'}</td><td><button onclick=\"act({r['id']},{str(not r['approved']).lower()})\">{'Ocultar' if r['approved'] else 'Publicar'}</button></td></tr>" for r in rows)
     return HTMLResponse(f"""<!doctype html><meta charset=utf-8><title>Reseñas</title><body style="font-family:sans-serif;padding:20px"><h2>Reseñas</h2>
 <table border=1 cellpadding=6 style="border-collapse:collapse"><tr><th>Fecha</th><th>Nombre</th><th>Nota</th><th>Texto</th><th>Verif.</th><th>Estado</th><th></th></tr>{trs}</table>

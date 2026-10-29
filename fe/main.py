@@ -496,7 +496,7 @@ async def admin_gelato_auto(token: str = ""):
                         cat, flt = "framed-canvas", {"CanvasFormat": [f"{w}x{h}-mm", f"{h}x{w}-mm"], "Orientation": ["hor" if orient == "h" else "ver"], "FrameColor": [color[frame]]}
                         pick = lambda u: "wood-fsc-2-cm" in u
                     else:
-                        cat, flt = "framed-posters", {"PaperFormat": [f"{a}x{b}-mm"], "Orientation": ["hor" if orient == "h" else "ver"], "FrameColor": [color[frame]]}
+                        cat, flt = "mounted-framed-posters", {"PaperFormat": [f"{a}x{b}-mm"], "Orientation": ["hor" if orient == "h" else "ver"], "FrameColor": [color[frame]]}
                         pick = lambda u: "200-gsm-uncoated" in u and ("frm_wood" in u or frame == "gold")
                     code, data = await shop.gelato("POST", f"{base}/{cat}/products:search", {"attributeFilters": flt, "limit": 100})
                     cands = [p["productUid"] for p in (data.get("products") or [])] if code == 200 and isinstance(data, dict) else []

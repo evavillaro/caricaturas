@@ -201,13 +201,13 @@ async def stripe_webhook(request: Request):
     return {"ok": True}
 
 
-@app.get("/api/print/{slug}/{size}/{frame}.png")
+@app.get("/api/print/{slug}/{size}/{frame}.jpg")
 async def print_png(slug: str, size: str, frame: str):
     """Archivo de impresión para Gelato, generado al vuelo desde el original y cacheado en Storage."""
     p = await db.product(slug)
     if not p or not p.get("art_url"):
         raise HTTPException(404)
-    path = f"{slug}/print-{size}-{frame}.png"
+    path = f"{slug}/print-{size}-{frame}.jpg"
     url = db.public_url(path)
     async with httpx.AsyncClient(timeout=30) as c:
         h = await c.head(url)
@@ -215,8 +215,8 @@ async def print_png(slug: str, size: str, frame: str):
         return RedirectResponse(url)
     src = Image.open(io.BytesIO(await db.download(p["art_url"]))).convert("RGB")
     data = await asyncio.to_thread(art.print_file, src, p["kind"], size, frame)
-    await db.upload(path, data, "image/png")
-    return Response(data, media_type="image/png")
+    await db.upload(path, data, "image/jpeg")
+    return Response(data, media_type="image/jpeg")
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -265,11 +265,17 @@ async def admin_seed(token: str = ""):
 async def _load_rooms() -> dict:
     rooms = await db.get_setting("rooms") or {}
     out = {}
+    changed = False
     for k, v in rooms.items():
         try:
-            out[k] = (Image.open(io.BytesIO(await db.download(v["url"]))).convert("RGB"), v)
+            data = await db.download(v["url"])
+            if not v["url"].startswith(db.URL):
+                v["url"] = await db.upload(f"_rooms/{k}.png", data, "image/png"); changed = True
+            out[k] = (Image.open(io.BytesIO(data)).convert("RGB"), v)
         except Exception:
             pass
+    if changed:
+        await db.set_setting("rooms", rooms)
     return out
 
 
@@ -344,7 +350,7 @@ async def admin_art(token: str = "", limit: int = 2, slug: str = "", redo: bool 
     for p in todo:
         try:
             a = await art.generate_art(p)
-            art_url = await db.upload(f"{p['slug']}/art.png", _png(a), "image/png")
+            art_url = await db.upload(f"{p['slug']}/art.jpg", art.jpeg(a, 96))
             imgs = await build_images(p, a, rooms)
             await db.patch("fe_products", "slug", p["slug"], {"art_url": art_url, "images": imgs})
             done.append({"slug": p["slug"], "main": imgs[0]["url"]})

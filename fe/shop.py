@@ -149,7 +149,7 @@ async def fulfil(order_id: str) -> dict | None:
         if not uid:
             missing.append(k); continue
         lines.append({"itemReferenceId": f"{order_id}-{n}", "productUid": uid, "quantity": it["qty"],
-                      "files": [{"type": "default", "url": f"{config.BASE_URL}/api/print/{it['slug']}/{it['size']}/{it['frame']}.png"}]})
+                      "files": [{"type": "default", "url": f"{config.BASE_URL}/api/print/{it['slug']}/{it['size']}/{it['frame']}.jpg"}]})
     if missing:
         await db.patch("fe_orders", "id", order_id, {"status": "print_error", "gelato_error": "sin UID de Gelato: " + ", ".join(missing)})
         return await get_order(order_id)

@@ -150,13 +150,15 @@ def framed(art: Image.Image, frame: str, kind: str, px_per_cm: float) -> Image.I
     d.polygon([(W, 0), (W, H), (W - fw, H - fw), (W - fw, fw)], fill=dark + (255,))
     d.polygon([(0, H), (fw, H - fw), (W - fw, H - fw), (W, H)], fill=tuple(int((a + b) / 2) for a, b in zip(dark, col)) + (255,))
     if frame in ("natural", "dark"):
-        # veta de madera sutil
+        # veta de madera sutil (capa aparte para que se mezcle y no deje transparencias)
+        g = Image.new("RGBA", (W, H), (0, 0, 0, 0)); gd = ImageDraw.Draw(g)
         rnd = random.Random(7)
         for _ in range(60):
-            y = rnd.randint(0, H); a = rnd.randint(4, 10)
-            d.line([(0, y), (fw, y)], fill=(0, 0, 0, a)); d.line([(W - fw, y), (W, y)], fill=(0, 0, 0, a))
+            y = rnd.randint(0, H); a = rnd.randint(6, 14)
+            gd.line([(0, y), (fw, y)], fill=(0, 0, 0, a)); gd.line([(W - fw, y), (W, y)], fill=(0, 0, 0, a))
             x = rnd.randint(0, W)
-            d.line([(x, 0), (x, fw)], fill=(0, 0, 0, a)); d.line([(x, H - fw), (x, H)], fill=(0, 0, 0, a))
+            gd.line([(x, 0), (x, fw)], fill=(0, 0, 0, a)); gd.line([(x, H - fw), (x, H)], fill=(0, 0, 0, a))
+        out = Image.alpha_composite(out, g); d = ImageDraw.Draw(out)
     if gap:
         d.rectangle([fw, fw, W - fw - 1, H - fw - 1], fill=(30, 26, 22, 255))
     out.paste(art, (fw + gap, fw + gap))
@@ -333,25 +335,25 @@ def clean_green(img: Image.Image, mask) -> Image.Image:
 
 def in_room(tpl: Image.Image, quad, art: Image.Image, frame: str, kind: str) -> Image.Image:
     """Encaja el cuadro (con marco) en el rectángulo verde de la plantilla."""
-    from .persp import persp_coeffs
     out = tpl.copy().convert("RGBA")
-    xs = [p[0] for p in quad]; ys = [p[1] for p in quad]
-    bx0, by0, bx1, by1 = min(xs), min(ys), max(xs), max(ys)
+    # plantillas frontales: rectángulo recto según la máscara verde; lo que tapa el hueco (flores,
+    # lámparas) se respeta porque solo se pinta donde había verde
+    import numpy as np
+    _, mask = detect_green(tpl)
+    ys, xs = np.nonzero(mask)
+    bx0, bx1, by0, by1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
     bw, bh = bx1 - bx0 + 1, by1 - by0 + 1
     ppcm = bw / 90
-    f = framed(ImageOps.fit(art, (bw, bh), Image.LANCZOS), frame, kind, ppcm)
-    f = f.resize((bw, bh), Image.LANCZOS)
-    local = [(x - bx0, y - by0) for x, y in quad]
-    coeffs = persp_coeffs(local, [(0, 0), (bw, 0), (bw, bh), (0, bh)])
-    warped = f.transform((bw, bh), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
-    # cubrir también el halo verde: dilatar 3 px
-    mask = Image.new("L", (bw, bh), 0); ImageDraw.Draw(mask).polygon(local, fill=255)
     sh = Image.new("RGBA", out.size, (0, 0, 0, 0))
     ImageDraw.Draw(sh).rectangle([bx0 + 6, by0 + 10, bx1 + 6, by1 + 12], fill=(0, 0, 0, 70))
+    shm = Image.fromarray((~mask * 255).astype("uint8"))  # la sombra solo fuera del hueco
+    sh.putalpha(Image.composite(sh.split()[3], Image.new("L", out.size, 0), shm))
     out = Image.alpha_composite(out, sh.filter(ImageFilter.GaussianBlur(10)))
-    big = ImageOps.expand(warped, border=3)
-    bigmask = ImageOps.expand(mask, border=3, fill=0).filter(ImageFilter.MaxFilter(7))
-    out.paste(big.resize((bw + 6, bh + 6)), (bx0 - 3, by0 - 3), bigmask)
+    f = framed(ImageOps.fit(art, (bw, bh), Image.LANCZOS), frame, kind, ppcm).resize((bw, bh), Image.LANCZOS)
+    layer = Image.new("RGBA", out.size, (0, 0, 0, 0)); layer.paste(f, (bx0, by0))
+    m = Image.fromarray((mask * 255).astype("uint8")).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(0.8))
+    layer.putalpha(Image.composite(layer.split()[3], Image.new("L", out.size, 0), m))
+    out = Image.alpha_composite(out, layer)
     return out.convert("RGB")
 
 
@@ -386,7 +388,7 @@ def print_file(art: Image.Image, kind: str, size_key: str, frame: str) -> bytes:
         else:
             img = ImageOps.fit(art, (W, H), Image.LANCZOS)
     img = img.filter(ImageFilter.UnsharpMask(radius=1.5, percent=40, threshold=3))
-    buf = io.BytesIO(); img.save(buf, format="PNG", dpi=(dpi, dpi), optimize=True)
+    buf = io.BytesIO(); img.save(buf, format="JPEG", quality=95, dpi=(dpi, dpi), subsampling=0)
     return buf.getvalue()
 
 

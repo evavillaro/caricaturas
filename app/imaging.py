@@ -11,6 +11,7 @@ import io
 import math
 
 import httpx
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from . import config
@@ -97,53 +98,96 @@ async def generate_photo(scene_prompt: str) -> Image.Image:
     return Image.open(io.BytesIO(base64.b64decode(r.json()["data"][0]["b64_json"]))).convert("RGB")
 
 
+FONTS_DIR = Path(__file__).parent / "fonts"
+
+
+def _hand_font(size: int):
+    for name in ("PatrickHand.ttf", "Caveat.ttf"):
+        try:
+            return ImageFont.truetype(str(FONTS_DIR / name), size)
+        except OSError:
+            continue
+    return _font(size)
+
+
 def compose_main(art: Image.Image, photo: Image.Image, label: str = "tu foto") -> Image.Image:
-    """Imagen principal de catálogo como la tienda de referencia: lienzo apoyado a la izquierda,
-    móvil con la foto de origen a la derecha, texto y flecha hacia el cuadro."""
-    W = H = 1200
-    bg = Image.new("RGB", (W, H), (236, 231, 222))
-    ImageDraw.Draw(bg).rectangle([0, 1010, W, H], fill=(205, 190, 170))
-    a = art.copy(); a.thumbnail((900, 1200)); w, h = a.size
-    scale = min((W * 0.52) / w, (H * 0.76) / h)
-    cw, ch = int(w * scale), int(h * scale)
-    piece = a.resize((cw, ch), Image.LANCZOS)
-    x, y = int(W * 0.09), int(H * 0.10)
-    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0)); sd = ImageDraw.Draw(shadow)
-    sd.rectangle([x + 18, y + 24, x + cw + 18, y + ch + 24], fill=(0, 0, 0, 110))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(22))
-    bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
-    edge = int(cw * 0.025)
-    side = piece.crop((cw - edge, 0, cw, ch)).resize((edge, ch)).point(lambda v: int(v * 0.6))
-    bg.paste(side, (x + cw, y + int(edge * 0.6)))
-    bg.paste(piece, (x, y))
-    # móvil
-    pw = int(W * 0.19); ph = int(pw * 2.05)
-    px, py = int(W * 0.72), int(H * 0.50)
-    d = ImageDraw.Draw(bg)
-    d.rounded_rectangle([px, py, px + pw, py + ph], radius=int(pw * 0.14), fill=(22, 22, 22))
-    inner = ImageOps.fit(photo, (pw - 18, ph - 18), method=Image.LANCZOS)
-    mask = Image.new("L", inner.size, 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, inner.width - 1, inner.height - 1], radius=int(pw * 0.10), fill=255)
-    bg.paste(inner, (px + 9, py + 9), mask)
-    d.rounded_rectangle([px + pw * 0.38, py + 4, px + pw * 0.62, py + 10], radius=3, fill=(70, 70, 70))
-    # texto sobre el móvil; flecha curva grande que sale del móvil y apunta al cuadro
+    """Imagen principal como la tienda de referencia: pared gris clara con suelo, lienzo con
+    perspectiva y canto, móvil con la foto abajo a la derecha, texto a mano y flecha curva
+    del móvil al cuadro."""
     import math
-    font = _font(int(W * 0.05))
-    tw = d.textlength(label, font=font)
-    tx, ty = px + int(pw * 0.42), py - int(H * 0.085)  # a la derecha del arranque de la flecha
-    if tx + tw > W - 10: tx = W - 10 - int(tw)
-    d.text((tx, ty), label, fill=(30, 30, 30), font=font)
-    sx, sy = px + int(pw * 0.15), py - int(H * 0.02)           # sale del borde superior izquierdo del móvil
-    ex, ey = x + cw + int(W * 0.02), int(H * 0.40)             # apunta al cuadro, a media altura
-    cx_, cy_ = int((sx + ex) / 2) + int(W * 0.06), ey - int(H * 0.20)  # control arriba: arco que sube y entra en el cuadro
-    pts = []
-    for i in range(41):
-        t = i / 40
-        pts.append(((1 - t) ** 2 * sx + 2 * (1 - t) * t * cx_ + t ** 2 * ex, (1 - t) ** 2 * sy + 2 * (1 - t) * t * cy_ + t ** 2 * ey))
-    d.line(pts, fill=(30, 30, 30), width=6, joint="curve")
-    ang = math.atan2(ey - pts[-4][1], ex - pts[-4][0])
-    L = int(W * 0.035)
-    d.polygon([(ex, ey), (ex - L * math.cos(ang - 0.5), ey - L * math.sin(ang - 0.5)), (ex - L * math.cos(ang + 0.5), ey - L * math.sin(ang + 0.5))], fill=(30, 30, 30))
+    W, H = 1160, 1300
+    # fondo: pared gris clara con degradado suave y suelo
+    bg = Image.new("RGB", (W, H), (232, 232, 234))
+    px_ = bg.load()
+    for yy in range(H):
+        v = 236 - int(14 * yy / H)
+        for xx in range(0, W, 1):
+            px_[xx, yy] = (v, v, v + 2)
+    ImageDraw.Draw(bg).rectangle([0, int(H * 0.86), W, H], fill=(214, 214, 216))
+    # lienzo con perspectiva (lado derecho ligeramente más corto) y canto izquierdo visible
+    a = art.copy().convert("RGB"); a.thumbnail((900, 1200))
+    cw, ch = int(W * 0.60), int(W * 0.60 * 4 / 3)
+    piece = a.resize((cw, ch), Image.LANCZOS)
+    x0, y0 = int(W * 0.08), int(H * 0.06)
+    skew = int(ch * 0.025)
+    # mapa de perspectiva: esquinas destino (tl, tr, br, bl) → origen
+    dst = [(0, 0), (cw, skew), (cw, ch - skew), (0, ch)]
+    src = [(0, 0), (cw, 0), (cw, ch), (0, ch)]
+    coeffs = _persp_coeffs(dst, src)
+    warped = piece.transform((cw, ch), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
+    mask = Image.new("L", (cw, ch), 0); ImageDraw.Draw(mask).polygon(dst, fill=255)
+    # sombra
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0)); sd = ImageDraw.Draw(shadow)
+    sd.polygon([(x0 + 6, y0 + 10), (x0 + cw + 10, y0 + skew + 14), (x0 + cw + 10, y0 + ch - skew + 24), (x0 + 6, y0 + ch + 20)], fill=(0, 0, 0, 120))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(26))
+    bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
+    # canto izquierdo (lado del bastidor, más oscuro)
+    edge = int(cw * 0.035)
+    strip = piece.crop((0, 0, edge, ch)).point(lambda v: int(v * 0.55))
+    strip_mask = Image.new("L", (edge, ch), 0); ImageDraw.Draw(strip_mask).polygon([(edge, 0), (edge, ch), (0, ch + 14), (0, 14)], fill=255)
+    bg.paste(strip, (x0 - edge, y0 - 14 + 14), strip_mask)
+    bg.paste(warped, (x0, y0), mask)
+    # móvil
+    d = ImageDraw.Draw(bg)
+    pw = int(W * 0.21); ph = int(pw * 2.05)
+    px, py = int(W * 0.76), int(H * 0.52)
+    d.rounded_rectangle([px - 4, py - 4, px + pw + 4, py + ph + 4], radius=int(pw * 0.16), fill=(30, 30, 30))
+    d.rounded_rectangle([px, py, px + pw, py + ph], radius=int(pw * 0.14), fill=(10, 10, 10))
+    inner = ImageOps.fit(photo, (pw - 14, ph - 14), method=Image.LANCZOS)
+    m2 = Image.new("L", inner.size, 0); ImageDraw.Draw(m2).rounded_rectangle([0, 0, inner.width - 1, inner.height - 1], radius=int(pw * 0.11), fill=255)
+    bg.paste(inner, (px + 7, py + 7), m2)
+    d.rounded_rectangle([px + pw * 0.36, py + 8, px + pw * 0.64, py + 16], radius=4, fill=(40, 40, 40))
+    # texto a mano, dos líneas si hace falta, centrado sobre el móvil
+    font = _hand_font(int(W * 0.075))
+    lines = label.split(" ") if len(label) > 8 else [label]
+    ty = int(H * 0.22)
+    for ln in lines:
+        tw = d.textlength(ln, font=font)
+        d.text((px + pw / 2 - tw / 2, ty), ln, fill=(20, 20, 20), font=font)
+        ty += int(font.size * 0.95)
+    # flecha curva: del móvil (arriba-izquierda) hacia el cuadro
+    sx, sy = px + int(pw * 0.25), py - int(H * 0.02)
+    ex, ey = x0 + cw + int(W * 0.035), int(H * 0.40)
+    cx_, cy_ = sx + int(W * 0.02), ey + int(H * 0.02)
+    pts = [((1 - t) ** 2 * sx + 2 * (1 - t) * t * cx_ + t ** 2 * ex, (1 - t) ** 2 * sy + 2 * (1 - t) * t * cy_ + t ** 2 * ey) for t in (i / 40 for i in range(41))]
+    d.line(pts, fill=(20, 20, 20), width=7, joint="curve")
+    ang = math.atan2(ey - pts[-5][1], ex - pts[-5][0])
+    L = int(W * 0.04)
+    d.line([(ex, ey), (ex - L * math.cos(ang - 0.55), ey - L * math.sin(ang - 0.55))], fill=(20, 20, 20), width=7)
+    d.line([(ex, ey), (ex - L * math.cos(ang + 0.55), ey - L * math.sin(ang + 0.55))], fill=(20, 20, 20), width=7)
     return bg
+
+
+def _persp_coeffs(pa, pb):
+    """Coeficientes para Image.transform(PERSPECTIVE): pa = esquinas destino, pb = esquinas origen."""
+    import numpy as np
+    matrix = []
+    for p1, p2 in zip(pa, pb):
+        matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0] * p1[0], -p2[0] * p1[1]])
+        matrix.append([0, 0, 0, p1[0], p1[1], 1, -p2[1] * p1[0], -p2[1] * p1[1]])
+    A = np.array(matrix, dtype=float); B = np.array([c for p in pb for c in p], dtype=float)
+    res = np.linalg.solve(A, B)
+    return list(res)
 
 
 def _jpeg(img: Image.Image, q: int = 86) -> bytes:

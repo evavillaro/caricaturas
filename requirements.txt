@@ -4,3 +4,4 @@ pillow==12.3.0
 httpx==0.28.1
 stripe==16.0.1
 python-multipart==0.0.32
+numpy>=1.26

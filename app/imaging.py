@@ -364,20 +364,42 @@ def make_preview(result: Image.Image, max_side: int = 900) -> bytes:
     return buf.getvalue()
 
 
-def prepare_print_file(result: Image.Image, width_mm: int = 300, height_mm: int = 400, bleed_mm: int = 10, dpi: int = 300) -> bytes:
-    """Archivo de impresión: la caricatura ocupa la cara del lienzo/póster (recorte mínimo y
-    centrado, solo fondo) y el sangrado/canto se rellena con los bordes en espejo, así no se
-    pierde imagen por el sangrado."""
+def _mirror_pad(img: Image.Image, b_l: int, b_t: int, b_r: int, b_b: int) -> Image.Image:
+    """Amplía la imagen reflejando sus bordes (continuidad perfecta en la costura)."""
+    W, H = img.width + b_l + b_r, img.height + b_t + b_b
+    out = Image.new("RGB", (W, H))
+    out.paste(img, (b_l, b_t))
+    if b_l: out.paste(ImageOps.mirror(img.crop((0, 0, b_l, img.height))), (0, b_t))
+    if b_r: out.paste(ImageOps.mirror(img.crop((img.width - b_r, 0, img.width, img.height))), (b_l + img.width, b_t))
+    if b_t: out.paste(ImageOps.flip(out.crop((0, b_t, W, 2 * b_t))), (0, 0))
+    if b_b: out.paste(ImageOps.flip(out.crop((0, H - 2 * b_b, W, H - b_b))), (0, H - b_b))
+    return out
+
+
+def fit_without_cropping(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Ajusta al formato de impresión sin cortar a nadie: se conserva SIEMPRE la altura entera
+    (cabeza y pies) y solo se ajustan los laterales, que son fondo: si sobra anchura se recorta
+    un poco por los lados; si falta, se amplía el fondo lateral en espejo."""
+    fw, fh = size
+    im = img.convert("RGB")
+    w = round(im.width * fh / im.height)
+    im = im.resize((w, fh), Image.LANCZOS)
+    if w >= fw:
+        x = (w - fw) // 2
+        return im.crop((x, 0, x + fw, fh))
+    d = fw - w
+    return _mirror_pad(im, d // 2, 0, d - d // 2, 0)
+
+
+def prepare_print_file(result: Image.Image, width_mm: int = 300, height_mm: int = 400, bleed_mm: int = 49, dpi: int = 300) -> bytes:
+    """Archivo de impresión con las medidas exactas que pide Gelato.
+    Lienzo slim 2 cm: cara + 2×34 mm de canto + 2×15 mm extra (p. ej. 200x300 → 298x398 mm).
+    Póster: cara + 4 mm de sangrado. La caricatura entera va en la cara (no se corta a nadie)
+    y el canto/sangrado se rellena en espejo."""
     px = lambda mm: int(round(mm / 25.4 * dpi))
     fw, fh, b = px(width_mm), px(height_mm), px(bleed_mm)
-    face = ImageOps.fit(result.convert("RGB"), (fw, fh), method=Image.LANCZOS, centering=(0.5, 0.42))
-    img = Image.new("RGB", (fw + 2 * b, fh + 2 * b))
-    img.paste(face, (b, b))
-    if b:
-        img.paste(ImageOps.mirror(face.crop((0, 0, b, fh))), (0, b))
-        img.paste(ImageOps.mirror(face.crop((fw - b, 0, fw, fh))), (fw + b, b))
-        top = img.crop((0, b, img.width, 2 * b)); img.paste(ImageOps.flip(top), (0, 0))
-        bot = img.crop((0, img.height - 2 * b, img.width, img.height - b)); img.paste(ImageOps.flip(bot), (0, img.height - b))
+    face = fit_without_cropping(result, (fw, fh))
+    img = _mirror_pad(face, b, b, b, b) if b else face
     buf = io.BytesIO()
     img.save(buf, format="PNG", dpi=(dpi, dpi))
     return buf.getvalue()

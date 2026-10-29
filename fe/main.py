@@ -1,4 +1,4 @@
-"""Tienda de cuadros religiosos modernos (marca provisional Fe Moderna).
+"""Tienda de cuadros religiosos modernos (Cuadros con Alma).
 
 Arranque: uvicorn fe.main:app
 """

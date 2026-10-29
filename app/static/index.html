@@ -168,7 +168,7 @@ function card(s){
     <p class="card-price"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b></p></a>`;
 }
 function render(cat){
-  const list = D.scenes.filter(s => !cat || s.categories.includes(cat));
+  const list = D.scenes.filter(s => !cat || s.categories.includes(cat) || (cat === 'bestsellers' && s.bestseller));
   const MAX = cat ? 1000 : 12;
   $('#groups').innerHTML = D.groups.map(g => {
     const items = list.filter(s => s.group === g.slug); if(!items.length) return '';

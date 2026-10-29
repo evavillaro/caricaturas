@@ -435,8 +435,15 @@ async def admin_coupon(token: str = ""):
     existing = shop._as_dict(stripe.PromotionCode.list(code="BIENVENIDA15", limit=1))
     if existing.get("data"):
         return {"ok": True, "promotion_code": existing["data"][0]["id"], "existing": True}
-    c = stripe.Coupon.create(percent_off=config.WELCOME_DISCOUNT_PCT, duration="once", name=f"Bienvenida {config.BRAND}")
-    pc = stripe.PromotionCode.create(coupon=c.id, code="BIENVENIDA15", restrictions={"first_time_transaction": True})
+    name = f"Bienvenida {config.BRAND}"
+    coupons = shop._as_dict(stripe.Coupon.list(limit=100)).get("data") or []
+    c = next((x for x in coupons if x.get("name") == name and x.get("valid")), None)
+    cid = c["id"] if c else stripe.Coupon.create(percent_off=config.WELCOME_DISCOUNT_PCT, duration="once", name=name).id
+    try:
+        pc = stripe.PromotionCode.create(promotion={"type": "coupon", "coupon": cid}, code="BIENVENIDA15", restrictions={"first_time_transaction": True})
+    except Exception:
+        pc = stripe.PromotionCode.create(coupon=cid, code="BIENVENIDA15", restrictions={"first_time_transaction": True})
+    c = type("C", (), {"id": cid})
     return {"ok": True, "coupon": c.id, "promotion_code": pc.id}
 
 

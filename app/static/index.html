@@ -28,25 +28,21 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
 </header>
 
 <main>
-<section class="hero">
-  <div class="hero-text">
-    <p class="kicker">Tu idea. Tu foto. Un regalo personal.</p>
-    <h1>{{H1}}</h1>
-    <p class="lead">{{INTRO}}</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="#catalogo">Elegir caricatura</a>
-      <a class="btn btn-ghost" href="#opiniones">Opiniones de clientes</a>
-    </div>
-    <ol class="mini-steps">
-      <li><b>1.</b> Elige el diseño y sube una foto</li>
-      <li><b>2.</b> Mira tu caricatura en 1-2 minutos (hasta 3 pruebas gratis)</li>
-      <li><b>3.</b> Si te gusta, elige tamaño y paga; envío gratis</li>
-    </ol>
+<section class="hero-strip" id="heroStrip"></section>
+<section class="hero hero-center">
+  <p class="kicker">Tu idea. Tu foto. Un regalo personal.</p>
+  <h1>{{H1}}</h1>
+  <div class="cta-col">
+    <a class="btn btn-primary" href="#catalogo">Elige una caricatura →</a>
+    <a class="btn btn-ghost" href="#opiniones">Opiniones de clientes</a>
   </div>
-  <div class="hero-art">
-    <div class="frame"><img id="hero-img" src="/api/example/motero.jpg" alt="Ejemplo de caricatura" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'Ejemplo antes/después'}))"></div>
-    <p class="price-tag"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b> · envío gratis</p>
-  </div>
+  <p class="lead">{{INTRO}}</p>
+  <ol class="mini-steps">
+    <li><b>1.</b> Elige el diseño y sube una foto</li>
+    <li><b>2.</b> Mira tu caricatura en 1-2 minutos (hasta 3 pruebas gratis)</li>
+    <li><b>3.</b> Si te gusta, elige tamaño y paga; envío gratis</li>
+  </ol>
+  <p class="price-tag"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b> · envío gratis</p>
 </section>
 
 <section class="trial">
@@ -157,7 +153,14 @@ async function load(){
   const f = $('#filters');
   f.innerHTML = `<button data-cat="" class="${CATEGORY?'':'on'}">Todos</button>` + D.categories.map(c => `<button data-cat="${c.slug}" class="${c.slug===CATEGORY?'on':''}">${c.name}</button>`).join('');
   f.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; f.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); render(b.dataset.cat); });
-  render(CATEGORY); $('#count').textContent = D.total ? `· ${D.total} diseños` : '';
+  heroStrip(); render(CATEGORY); $('#count').textContent = D.total ? `· ${D.total} diseños` : '';
+}
+function heroStrip(){
+  // como la referencia: franja de caricaturas de distintos grupos encima del título
+  const withImg = D.scenes.filter(s => s.image);
+  const pick = []; const groups = ['ella','el','pareja','ella','el','familia','ella'];
+  groups.forEach((g,i) => { const c = withImg.filter(s => s.group === g && !pick.includes(s)); if (c.length) pick.push(c[(i*7) % c.length]); });
+  $('#heroStrip').innerHTML = pick.slice(0,6).map(s => `<a href="/p/${s.id}"><img src="${s.image.replace('/main.jpg','/art.jpg')}" alt="" onerror="this.src='${s.image}'"></a>`).join('');
 }
 function card(s){
   return `<a class="card" href="/p/${s.id}">

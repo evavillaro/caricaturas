@@ -365,12 +365,19 @@ def make_preview(result: Image.Image, max_side: int = 900) -> bytes:
 
 
 def prepare_print_file(result: Image.Image, width_mm: int = 300, height_mm: int = 400, bleed_mm: int = 10, dpi: int = 300) -> bytes:
-    """Archivo de impresión: tamaño exacto en mm + sangrado por los 4 lados, 300 dpi.
-    La IA entrega 1024x1536 (2:3); el lienzo 30x40 es 3:4, así que se recorta con
-    cuidado por el centro (la composición está centrada)."""
+    """Archivo de impresión: la caricatura ocupa la cara del lienzo/póster (recorte mínimo y
+    centrado, solo fondo) y el sangrado/canto se rellena con los bordes en espejo, así no se
+    pierde imagen por el sangrado."""
     px = lambda mm: int(round(mm / 25.4 * dpi))
-    W, H = px(width_mm + 2 * bleed_mm), px(height_mm + 2 * bleed_mm)
-    img = ImageOps.fit(result, (W, H), method=Image.LANCZOS, centering=(0.5, 0.45))
+    fw, fh, b = px(width_mm), px(height_mm), px(bleed_mm)
+    face = ImageOps.fit(result.convert("RGB"), (fw, fh), method=Image.LANCZOS, centering=(0.5, 0.42))
+    img = Image.new("RGB", (fw + 2 * b, fh + 2 * b))
+    img.paste(face, (b, b))
+    if b:
+        img.paste(ImageOps.mirror(face.crop((0, 0, b, fh))), (0, b))
+        img.paste(ImageOps.mirror(face.crop((fw - b, 0, fw, fh))), (fw + b, b))
+        top = img.crop((0, b, img.width, 2 * b)); img.paste(ImageOps.flip(top), (0, 0))
+        bot = img.crop((0, img.height - 2 * b, img.width, img.height - b)); img.paste(ImageOps.flip(bot), (0, img.height - b))
     buf = io.BytesIO()
     img.save(buf, format="PNG", dpi=(dpi, dpi))
     return buf.getvalue()

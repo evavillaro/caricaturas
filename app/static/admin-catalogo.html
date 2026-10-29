@@ -24,7 +24,7 @@
   <div id="tplprev"></div>
   <h3>2. Generar imágenes de catálogo</h3>
   <p class="hint">Genera la caricatura de muestra de cada producto (≈ 0,10-0,20 € cada una) más mockups de pared, ladrillo y póster, y las sube a Supabase. De 10 en 10.</p>
-  <div class="row"><button class="btn btn-primary" id="gen">Generar 10 (antes/después)</button><button class="btn btn-ghost" id="genall">Generar todas las que falten</button><button class="btn btn-ghost" id="redo">Rehacer las 12 sin antes/después</button><span id="genst"></span></div>
+  <div class="row"><button class="btn btn-primary" id="gen">Generar 10 (antes/después)</button><button class="btn btn-ghost" id="genall">Generar todas las que falten (en el servidor)</button><button class="btn btn-ghost" id="redo">Rehacer las 12 sin antes/después</button><span id="genst"></span></div>
   <pre id="out2"></pre>
 </div>
 </section></main>
@@ -40,6 +40,7 @@ $('#faces').onclick = async () => { $('#facest').textContent='generando (5-6 min
 $('#tpl').onclick = async () => { $('#tplst').textContent='generando…'; const r = await fetch('/admin/make-template?token='+token,{method:'POST'}); const d = await r.json(); $('#tplst').textContent = d.detail ? 'Error: '+d.detail : 'lista'; if(d.preview) $('#tplprev').innerHTML = `<img src="${d.preview}" style="max-width:480px;border-radius:10px;margin-top:10px">`; };
 $('#redo').onclick = async () => { while(true){ const d = await gen(true); if(!d.generated || !d.generated.length) break; } };
 $('#dedupe').onclick = async () => { $('#dedst').textContent='trabajando…'; const r = await fetch('/admin/dedupe-titles?token='+token,{method:'POST'}); $('#out3').textContent = JSON.stringify(await r.json(),null,1); $('#dedst').textContent=''; };
-$('#genall').onclick = async () => { while(true){ const d = await gen(false); if(!d.generated || !d.generated.length) break; } };
-status();
+$('#genall').onclick = async () => { const r = await fetch('/admin/generate-bg?token='+token,{method:'POST'}); $('#out2').textContent = JSON.stringify(await r.json(),null,1) + '\n' + $('#out2').textContent; poll(); };
+async function poll(){ const s = await status(); $('#genst').textContent = s.bg_running ? 'generando en el servidor (puedes cerrar la pestaña)…' : ''; if (s.bg_errors && s.bg_errors.length) $('#out2').textContent = 'errores: ' + JSON.stringify(s.bg_errors) + '\n' + $('#out2').textContent; if (s.bg_running) setTimeout(poll, 20000); }
+status().then(s => { if (s.bg_running) poll(); });
 </script></body></html>

@@ -14,6 +14,7 @@ Rutas:
 import asyncio
 import io
 import logging
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
@@ -158,12 +159,14 @@ async def admin_import(token: str = "", start: int = 0, limit: int = 50):
 
 
 @app.post("/admin/generate-images")
-async def admin_generate_images(token: str = "", limit: int = 10, before_after: bool = True, redo: bool = False):
+async def admin_generate_images(token: str = "", limit: int = 10, before_after: bool = True, redo: bool = False, slugs: str = ""):
     """Genera la imagen de catálogo (y mockups) de los productos que aún no la tienen."""
     _admin(token)
     if not catalog.ENABLED:
         raise HTTPException(400, "Supabase no configurado")
     params = {"select": "slug,title,group,scene_prompt,short_desc,images", "active": "eq.true", "order": "sort.asc", "limit": str(limit)}
+    if slugs:
+        params["slug"] = f"in.({slugs})"
     if not redo:
         params["image_url"] = "is.null"
     rows = await catalog._get("car_products", params)
@@ -274,6 +277,40 @@ async def admin_models(token: str = ""):
     return {"text_model": catalog.OPENAI_TEXT_MODEL, "test_status": t.status_code, "test_body": t.text[:400], "models": [m for m in models if "gpt" in m or "o" in m[:2]]}
 
 
+_bg = {"running": False, "done": 0, "errors": [], "started": None}
+
+
+async def _bg_worker(token: str, queue: list):
+    while queue:
+        slug = queue.pop(0)
+        try:
+            r = await admin_generate_images(token=token, limit=1, slugs=slug)
+            _bg["done"] += len(r["generated"]); _bg["errors"] += r["errors"]
+        except Exception as e:  # noqa: BLE001
+            _bg["errors"].append({"slug": slug, "error": str(e)[:200]})
+
+
+@app.post("/admin/generate-bg")
+async def admin_generate_bg(token: str = "", workers: int = 3):
+    """Genera en el servidor (no depende de tener la pestaña abierta), 3 a la vez."""
+    _admin(token)
+    if _bg["running"]:
+        return {"already_running": True, **{k: v for k, v in _bg.items() if k != "errors"}, "errors": len(_bg["errors"])}
+    rows = await catalog._get("car_products", {"select": "slug", "active": "eq.true", "image_url": "is.null", "order": "sort.asc", "limit": "5000"})
+    queue = [r["slug"] for r in rows]
+
+    async def run():
+        _bg.update(running=True, done=0, errors=[], started=time.time())
+        try:
+            await asyncio.gather(*[_bg_worker(token, queue) for _ in range(max(1, min(workers, 3)))])
+        finally:
+            _bg["running"] = False
+            catalog._cache["t"] = 0
+
+    asyncio.create_task(run())
+    return {"started": True, "pending": len(queue)}
+
+
 @app.get("/admin/catalog-status")
 async def admin_catalog_status(token: str = ""):
     _admin(token)
@@ -281,7 +318,7 @@ async def admin_catalog_status(token: str = ""):
         return {"supabase": False}
     total = await catalog._get("car_products", {"select": "slug", "limit": "5000"})
     with_img = await catalog._get("car_products", {"select": "slug", "image_url": "not.is.null", "limit": "5000"})
-    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436}
+    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436, "bg_running": _bg["running"], "bg_errors": _bg["errors"][-5:]}
 
 
 @app.get("/admin/catalogo", response_class=HTMLResponse)

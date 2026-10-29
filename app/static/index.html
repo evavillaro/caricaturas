@@ -27,6 +27,7 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
 <header class="top">
   <a class="logo" href="/">{{BRAND}}</a>
   <nav id="nav"></nav>
+  <a class="search-ico" href="#catalogo" aria-label="Buscar" onclick="setTimeout(()=>document.getElementById('q').focus(),300)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg></a>
 </header>
 
 <main>
@@ -53,6 +54,7 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
 
 <section id="catalogo" class="catalog">
   <h2>Elige tu caricatura <small id="count"></small></h2>
+  <div class="search-box"><input id="q" type="search" placeholder="Busca tu caricatura: médico, futbolista, profesora, boda, moto…" autocomplete="off"></div>
   <div class="filters" id="filters"></div>
   <div id="groups"></div>
 </section>
@@ -147,13 +149,16 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
 <script>
 const DEMO = {{DEMO}}, CATEGORY = "{{CATEGORY}}";
 const $ = s => document.querySelector(s);
-let D = null;
+let D = null; let curCat = CATEGORY;
+const norm = t => (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 async function load(){
   D = await (await fetch('/api/scenes')).json();
   $('#nav').innerHTML = D.categories.map(c => `<a href="/regalos/${c.slug}">${c.name}</a>`).join('');
   const f = $('#filters');
   f.innerHTML = `<button data-cat="" class="${CATEGORY?'':'on'}">Todos</button>` + D.categories.map(c => `<button data-cat="${c.slug}" class="${c.slug===CATEGORY?'on':''}">${c.name}</button>`).join('');
-  f.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; f.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); render(b.dataset.cat); });
+  f.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; f.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); curCat = b.dataset.cat; render(curCat); });
+  const q = $('#q'); const q0 = new URLSearchParams(location.search).get('q'); if (q0) q.value = q0;
+  q.addEventListener('input', () => render(curCat));
   heroStrip(); render(CATEGORY); $('#count').textContent = D.total ? `· ${D.total} diseños` : '';
 }
 function heroStrip(){
@@ -170,8 +175,11 @@ function card(s){
     <p class="card-price"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b></p></a>`;
 }
 function render(cat){
-  const list = D.scenes.filter(s => !cat || s.categories.includes(cat) || (cat === 'bestsellers' && s.bestseller));
-  const MAX = cat ? 1000 : 12;
+  const terms = norm($('#q').value).split(/\s+/).filter(w => w.length > 1).map(w => w.replace(/(es|s|a|o)$/,''));
+  let list = D.scenes.filter(s => !cat || s.categories.includes(cat) || (cat === 'bestsellers' && s.bestseller));
+  if (terms.length) list = list.filter(s => { const t = norm([s.name, s.desc, (s.categories||[]).join(' '), (D.categories||[]).filter(c=>(s.categories||[]).includes(c.slug)).map(c=>c.name).join(' ')].join(' ')); return terms.every(w => t.includes(w)); });
+  const MAX = (cat || terms.length) ? 1000 : 12;
+  if (terms.length && !list.length) { $('#groups').innerHTML = `<p class="no-results">No encontramos «${$('#q').value.replace(/</g,'')}». Prueba con otra palabra o <a href="mailto:{{EMAIL}}">pídenos tu idea</a>: la hacemos a medida.</p>`; return; }
   $('#groups').innerHTML = D.groups.map(g => {
     const items = list.filter(s => s.group === g.slug); if(!items.length) return '';
     const shown = items.slice(0, MAX), rest = items.length - shown.length;

@@ -87,6 +87,7 @@ const DEMO = {{DEMO}}, SCENE = "{{SCENE_ID}}", SCENE_NAME = "{{SCENE_NAME}}";
 const $ = s => document.querySelector(s);
 const eur = c => (c/100).toFixed(2).replace('.', ',') + ' €';
 let D = null, type = 'canvas', product = null, jobId = null, tries = 0;
+const TKEY = 'tries:' + location.pathname; try { tries = +(localStorage.getItem(TKEY) || 0); } catch(e) {}
 const TYPE_LABEL = {digital: 'Solo archivo (sin impresión)', canvas: 'Cuadro sobre lienzo', poster: 'Póster'};
 
 (function(){ const d = new Date(); let add = 6; while(add>0){ d.setDate(d.getDate()+1); if(d.getDay()!==0 && d.getDay()!==6) add--; }
@@ -124,7 +125,7 @@ form.addEventListener('submit', async e => {
   try {
     const r = await fetch('/api/generate', { method:'POST', body: new FormData(form) });
     const data = await r.json(); if(!r.ok) throw new Error(data.detail || 'Error al generar');
-    tries++; jobId = data.job_id; if(window.track) track('generate',{item:SCENE_NAME}); $('#left').textContent = 3 - tries;
+    tries++; try { localStorage.setItem(TKEY, tries); } catch(e) {} jobId = data.job_id; if(window.track) track('generate',{item:SCENE_NAME}); $('#left').textContent = 3 - tries;
     $('#preview').src = data.preview_url + '?t=' + Date.now(); $('#preview-box').hidden = false; $('#main-img').src = $('#preview').src;
     $('#preview-box').scrollIntoView({behavior:'smooth', block:'center'});
   } catch(err) { showError(err.message); form.hidden = false; }

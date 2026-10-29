@@ -518,8 +518,25 @@ async def api_config():
     }
 
 
+FREE_TRIES = 3          # pruebas gratis por diseño y persona (IP) cada 24 h
+FREE_TRIES_DAY = 8      # tope total por IP y día, para cortar abusos
+_TRIES: dict[str, list[tuple[float, str]]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    return (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+
+
 @app.post("/api/generate")
-async def api_generate(photo: UploadFile = File(...), notes: str = Form(""), scene: str = Form("clasica"), dedication: str = Form("")):
+async def api_generate(request: Request, photo: UploadFile = File(...), notes: str = Form(""), scene: str = Form("clasica"), dedication: str = Form("")):
+    import time as _t
+    ip = _client_ip(request); now = _t.time()
+    hist = [h for h in _TRIES.get(ip, []) if now - h[0] < 86400]
+    if sum(1 for h in hist if h[1] == scene) >= FREE_TRIES:
+        raise HTTPException(429, "Has usado las 3 pruebas gratuitas de este diseño. Si quieres otra, escríbenos a hola@caricaturea.com.")
+    if len(hist) >= FREE_TRIES_DAY:
+        raise HTTPException(429, "Has llegado al máximo de pruebas gratuitas de hoy. Escríbenos a hola@caricaturea.com y te ayudamos.")
+    hist.append((now, scene)); _TRIES[ip] = hist
     prod = await catalog.get_product(scene)
     if prod:
         scene_data = {"id": prod["slug"], "prompt": prod.get("scene_prompt") or prod.get("short_desc") or ""}

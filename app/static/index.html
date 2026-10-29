@@ -148,7 +148,7 @@ async function load(){
 }
 function card(s){
   return `<a class="card" href="/p/${s.id}">
-    <div class="card-img"><span class="badge">-${D.discount}%</span>${s.image ? `<img src="${s.image}" alt="${s.name.replace(/"/g,'')}" loading="lazy">` : `<span class="card-title">${s.name}</span>`}<span class="tu-foto">tu foto ↗</span></div>
+    <div class="card-img"><span class="badge">-${D.discount}%</span>${s.image ? `<img src="${s.image}" alt="${s.name.replace(/"/g,'')}" loading="lazy">` : `<span class="card-title">${s.name}</span>`}</div>
     <h3>${s.name}</h3><p>${s.desc}</p>
     <p class="card-price"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b></p></a>`;
 }

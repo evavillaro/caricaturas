@@ -569,6 +569,7 @@ async def api_generate(request: Request, photo: UploadFile = File(...), notes: s
     (d / "preview.jpg").write_bytes(imaging.make_preview(result))
     storage.update_meta(job_id, status="previewed", width=result.width, height=result.height)
     await asyncio.to_thread(storage.backup, job_id)
+    asyncio.get_running_loop().run_in_executor(None, storage.sb_cleanup)
     # La foto original no se guarda: solo se usa para generar.
     return {"job_id": job_id, "preview_url": f"/api/preview/{job_id}.jpg", "demo": config.DEMO_MODE}
 

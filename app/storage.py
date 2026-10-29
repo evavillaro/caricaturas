@@ -86,6 +86,37 @@ def backup(job_id: str) -> None:
         _sb_save(job_id, meta)
 
 
+UNPAID_KEEP_DAYS = 2
+_last_sb_cleanup = 0.0
+
+
+def sb_cleanup(force: bool = False) -> int:
+    """Borra de Supabase las pruebas NO pagadas de más de 2 días (fila + archivos).
+    Nunca toca pedidos pagados. Se ejecuta como mucho cada 6 h."""
+    global _last_sb_cleanup
+    if not SB_ON or (not force and time.time() - _last_sb_cleanup < 6 * 3600):
+        return 0
+    _last_sb_cleanup = time.time()
+    from datetime import datetime, timedelta, timezone
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=UNPAID_KEEP_DAYS)).isoformat()
+    removed = 0
+    try:
+        r = httpx.get(f"{SB_URL}/rest/v1/car_orders", headers=_h(), timeout=30,
+                      params={"select": "job_id,meta", "updated_at": f"lt.{cutoff}", "limit": "1000"})
+        rows = r.json() if r.status_code == 200 else []
+        old = [x["job_id"] for x in rows if not (x.get("meta") or {}).get("paid") and not (x.get("meta") or {}).get("gelato_order")]
+        for i in range(0, len(old), 100):
+            chunk = old[i:i + 100]
+            httpx.request("DELETE", f"{SB_URL}/storage/v1/object/{BUCKET}", headers=_h(), timeout=60,
+                          json={"prefixes": [f"{j}/{n}" for j in chunk for n in ("preview.jpg", "result.png")]})
+            ids = ",".join(f'"{j}"' for j in chunk)
+            httpx.request("DELETE", f"{SB_URL}/rest/v1/car_orders", headers=_h(), params={"job_id": f"in.({ids})"}, timeout=30)
+            removed += len(chunk)
+    except Exception:
+        pass
+    return removed
+
+
 def ensure_file(job_id: str, name: str) -> Path:
     """Devuelve la ruta local del archivo; si el disco se borró, lo recupera de Supabase."""
     p = job_dir(job_id) / name

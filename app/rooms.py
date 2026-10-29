@@ -95,7 +95,7 @@ def detect_green(img: Image.Image):
     import numpy as np
     arr = np.asarray(img.convert("RGB")).astype(int)
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
-    mask = (g > 140) & (g - r > 60) & (g - b > 60)
+    mask = (g > 110) & (g - r > 35) & (g - b > 35)
     return _quad_from_mask(mask), mask
 
 
@@ -107,7 +107,7 @@ def in_room(tpl: Image.Image, quad, art: Image.Image, frame: str, kind: str) -> 
     import numpy as np
     _, mask = detect_green(tpl)
     ys, xs = np.nonzero(mask)
-    bx0, bx1, by0, by1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
+    bx0, bx1, by0, by1 = int(xs.min()) - 3, int(xs.max()) + 3, int(ys.min()) - 3, int(ys.max()) + 3
     bw, bh = bx1 - bx0 + 1, by1 - by0 + 1
     ppcm = bw / 90
     sh = Image.new("RGBA", out.size, (0, 0, 0, 0))
@@ -117,7 +117,7 @@ def in_room(tpl: Image.Image, quad, art: Image.Image, frame: str, kind: str) -> 
     out = Image.alpha_composite(out, sh.filter(ImageFilter.GaussianBlur(10)))
     f = framed(ImageOps.fit(art, (bw, bh), Image.LANCZOS), frame, kind, ppcm).resize((bw, bh), Image.LANCZOS)
     layer = Image.new("RGBA", out.size, (0, 0, 0, 0)); layer.paste(f, (bx0, by0))
-    m = Image.fromarray((mask * 255).astype("uint8")).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(0.8))
+    m = Image.fromarray((mask * 255).astype("uint8")).filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.GaussianBlur(0.8))
     layer.putalpha(Image.composite(layer.split()[3], Image.new("L", out.size, 0), m))
     out = Image.alpha_composite(out, layer)
     return out.convert("RGB")

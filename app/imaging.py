@@ -84,9 +84,11 @@ async def generate_from_text(scene_prompt: str) -> Image.Image:
 async def generate_photo(scene_prompt: str) -> Image.Image:
     """Foto 'realista' de una persona inventada, para el antes/después del catálogo."""
     prompt = (
-        "Fotografía realista tipo selfie o retrato de móvil, luz natural, de una persona genérica "
-        "sonriente mirando a cámara, plano medio, fondo cotidiano neutro (calle, casa). Sin texto. "
-        "La persona debe encajar con esta descripción de producto (edad, género, estilo): " + scene_prompt[:300]
+        "Fotografía realista hecha con un móvil: retrato de frente, de cara y hombros, de una persona "
+        "genérica mirando a cámara y sonriendo con naturalidad, ropa normal de calle (camiseta, camisa "
+        "o jersey), SIN disfraz, SIN uniforme, SIN accesorios temáticos, luz natural, fondo cotidiano "
+        "desenfocado (casa, calle o parque). Sin texto. Solo debe coincidir la edad, el género y el "
+        "aspecto general (pelo, gafas, barba) con esta descripción: " + scene_prompt[:200]
     )
     if config.DEMO_MODE:
         img = Image.new("RGB", (1024, 1024), (200, 210, 230)); ImageDraw.Draw(img).text((40, 40), "FOTO DEMO", fill=(60, 60, 60), font=_font(60)); return img

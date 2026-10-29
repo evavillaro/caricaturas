@@ -39,7 +39,7 @@ FRAMES = [
     ("black", "Negro"),
     ("none", "Sin marco"),
 ]
-FRAME_COLORS = {"natural": (196, 164, 122), "dark": (92, 62, 42), "black": (28, 28, 28), "gold": (176, 146, 86), "white": (240, 238, 232)}
+FRAME_COLORS = {"natural": (198, 174, 138), "dark": (92, 62, 42), "black": (28, 28, 28), "gold": (176, 146, 86), "white": (240, 238, 232)}
 
 # Lienzo: proporción 2:3 (cm, lado corto x lado largo)
 CANVAS_SIZES = [("30x45", 300, 450), ("60x90", 600, 900), ("80x120", 800, 1200), ("100x150", 1000, 1500)]

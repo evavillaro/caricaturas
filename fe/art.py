@@ -138,13 +138,13 @@ def framed(art: Image.Image, frame: str, kind: str, px_per_cm: float) -> Image.I
         d.rectangle([0, 0, art.width - 1, art.height - 1], outline=(0, 0, 0, 40), width=2)
         return out
     fw = max(6, int(px_per_cm * (2.2 if kind == "lienzo" else 2.0)))
-    gap = int(fw * 0.35) if kind == "lienzo" else 0  # marco flotante
+    gap = int(fw * 0.22) if kind == "lienzo" else 0  # marco flotante
     col = config.FRAME_COLORS[frame]
     W, H = art.width + 2 * (fw + gap), art.height + 2 * (fw + gap)
     out = Image.new("RGBA", (W, H), col + (255,))
     d = ImageDraw.Draw(out)
     # biseles: luz arriba/izquierda, sombra abajo/derecha
-    light = tuple(min(255, int(c * 1.18 + 12)) for c in col); dark = tuple(int(c * 0.72) for c in col)
+    light = tuple(min(255, int(c * 1.10 + 8)) for c in col); dark = tuple(int(c * 0.72) for c in col)
     d.polygon([(0, 0), (W, 0), (W - fw, fw), (fw, fw)], fill=light + (255,))
     d.polygon([(0, 0), (fw, fw), (fw, H - fw), (0, H)], fill=tuple(int((a + b) / 2) for a, b in zip(light, col)) + (255,))
     d.polygon([(W, 0), (W, H), (W - fw, H - fw), (W - fw, fw)], fill=dark + (255,))
@@ -160,7 +160,7 @@ def framed(art: Image.Image, frame: str, kind: str, px_per_cm: float) -> Image.I
             gd.line([(x, 0), (x, fw)], fill=(0, 0, 0, a)); gd.line([(x, H - fw), (x, H)], fill=(0, 0, 0, a))
         out = Image.alpha_composite(out, g); d = ImageDraw.Draw(out)
     if gap:
-        d.rectangle([fw, fw, W - fw - 1, H - fw - 1], fill=(30, 26, 22, 255))
+        d.rectangle([fw, fw, W - fw - 1, H - fw - 1], fill=(58, 52, 46, 255))
     out.paste(art, (fw + gap, fw + gap))
     # sombra interior del marco sobre la obra
     sh = Image.new("RGBA", (W, H), (0, 0, 0, 0)); sd = ImageDraw.Draw(sh)

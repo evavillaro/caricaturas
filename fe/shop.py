@@ -5,7 +5,7 @@ import time
 
 import httpx
 
-from . import config, db
+from . import config, db, mail
 
 
 def _stripe():
@@ -84,6 +84,17 @@ async def create_checkout(raw_items: list[dict], email: str | None = None, disco
     return s.url
 
 
+async def notify_once(o: dict, key: str, coro_fn, *args):
+    """Envía el email `key` una sola vez por pedido."""
+    sent = dict(o.get("emails") or {})
+    if sent.get(key):
+        return
+    ok = await coro_fn(o, *args)
+    if ok:
+        sent[key] = True
+        await db.patch("fe_orders", "id", o["id"], {"emails": sent})
+
+
 async def get_order(order_id: str) -> dict | None:
     rows = await db.get("fe_orders", {"select": "*", "id": f"eq.{order_id}"})
     return rows[0] if rows else None
@@ -103,7 +114,9 @@ async def mark_paid(session) -> dict | None:
     shipping = {"name": ship.get("name") or det.get("name"), "line1": addr.get("line1"), "line2": addr.get("line2"), "city": addr.get("city"),
                 "postcode": addr.get("postal_code"), "state": addr.get("state"), "country": addr.get("country"), "phone": det.get("phone")}
     await db.patch("fe_orders", "id", oid, {"status": "paid", "email": det.get("email"), "shipping": shipping, "amount_cents": s.get("amount_total") or o.get("amount_cents")})
-    return await get_order(oid)
+    o = await get_order(oid)
+    await notify_once(o, "confirmed", mail.order_confirmed)
+    return o
 
 
 async def confirm(order_id: str, session_id: str) -> dict | None:
@@ -152,6 +165,7 @@ async def fulfil(order_id: str) -> dict | None:
                       "files": [{"type": "default", "url": f"{config.BASE_URL}/api/print/{it['slug']}/{it['size']}/{it['frame']}.jpg"}]})
     if missing:
         await db.patch("fe_orders", "id", order_id, {"status": "print_error", "gelato_error": "sin UID de Gelato: " + ", ".join(missing)})
+        await mail.admin_alert(f"Pedido {order_id} sin enviar a Gelato", "Faltan UIDs: " + ", ".join(missing))
         return await get_order(order_id)
     name = (ship.get("name") or "Cliente").split(" ")
     payload = {
@@ -165,6 +179,7 @@ async def fulfil(order_id: str) -> dict | None:
         r = await c.post(config.GELATO_ORDERS_URL, json=payload, headers={"X-API-KEY": config.GELATO_API_KEY})
     if r.status_code >= 300:
         await db.patch("fe_orders", "id", order_id, {"status": "print_error", "gelato_error": r.text[:800]})
+        await mail.admin_alert(f"Gelato ha rechazado el pedido {order_id}", r.text[:800])
     else:
         await db.patch("fe_orders", "id", order_id, {"status": "sent_to_print", "gelato_order": r.json().get("id")})
     return await get_order(order_id)
@@ -177,3 +192,45 @@ async def gelato(method: str, url: str, body: dict | None = None):
         return r.status_code, r.json()
     except Exception:
         return r.status_code, r.text[:2000]
+
+
+STATUS_ES = {"created": "sent_to_print", "passed": "sent_to_print", "printed": "in_production", "in_production": "in_production",
+             "shipped": "shipped", "delivered": "delivered", "canceled": "canceled", "cancelled": "canceled", "failed": "print_error",
+             "returned": "returned", "on_hold": "on_hold"}
+
+
+async def gelato_event(ev: dict) -> dict:
+    """Webhook de Gelato: actualiza el pedido y avisa al cliente por email."""
+    ref = ev.get("orderReferenceId") or ""
+    if not ref.startswith("FM"):
+        return {"ignored": ref}
+    o = await get_order(ref)
+    if not o:
+        return {"unknown": ref}
+    status = (ev.get("fulfillmentStatus") or "").lower()
+    tracking = None
+    for it in ev.get("items") or []:
+        for f in it.get("fulfillments") or []:
+            if f.get("trackingUrl") or f.get("trackingCode"):
+                tracking = {"url": f.get("trackingUrl"), "code": f.get("trackingCode"), "carrier": f.get("shipmentMethodName")}
+    if ev.get("trackingUrl") or ev.get("trackingCode"):
+        tracking = {"url": ev.get("trackingUrl"), "code": ev.get("trackingCode"), "carrier": ev.get("shipmentMethodName")}
+    patch = {}
+    if status in STATUS_ES:
+        patch["status"] = STATUS_ES[status]
+    if tracking:
+        patch["tracking"] = tracking
+    if patch:
+        await db.patch("fe_orders", "id", ref, patch)
+        o = await get_order(ref)
+    st = o.get("status")
+    if st == "in_production":
+        await notify_once(o, "production", mail.order_in_production)
+    if (st == "shipped" or tracking) and (o.get("tracking") or {}).get("url"):
+        t = o["tracking"]
+        await notify_once(o, "shipped", mail.order_shipped, t.get("url"), t.get("carrier"))
+    if st == "delivered":
+        await notify_once(o, "delivered", mail.order_delivered)
+    if st in ("print_error", "canceled", "on_hold", "returned"):
+        await mail.admin_alert(f"Pedido {ref}: {st}", str(ev)[:1500])
+    return {"ok": True, "status": st}

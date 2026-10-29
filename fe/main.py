@@ -201,6 +201,14 @@ async def stripe_webhook(request: Request):
     return {"ok": True}
 
 
+@app.post("/api/gelato/webhook")
+async def gelato_webhook(request: Request, key: str = ""):
+    if not config.env("GELATO_WEBHOOK_KEY") or key != config.env("GELATO_WEBHOOK_KEY"):
+        raise HTTPException(403)
+    ev = await request.json()
+    return await shop.gelato_event(ev)
+
+
 @app.get("/api/print/{slug}/{size}/{frame}.jpg")
 async def print_png(slug: str, size: str, frame: str):
     """Archivo de impresión para Gelato, generado al vuelo desde el original y cacheado en Storage."""
@@ -500,3 +508,13 @@ async def admin_gelato_auto(token: str = ""):
                         missing.append(k)
     await db.set_setting("gelato_uids", uids)
     return {"saved": len(uids), "missing": missing}
+
+
+@app.post("/admin/test-email")
+async def admin_test_email(token: str = "", to: str = ""):
+    _auth(token)
+    from . import mail
+    demo = {"id": "FM-PRUEBA", "email": to or mail.ADMIN, "shipping": {"name": "Eva"},
+            "items": [{"name": "El Buen Pastor · Lienzo 30x45 cm · Madera clara", "qty": 1, "cents": 10900}]}
+    ok = await mail.order_confirmed(demo)
+    return {"smtp": mail.ENABLED, "sent": ok, "to": demo["email"]}

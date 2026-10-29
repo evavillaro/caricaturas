@@ -27,8 +27,8 @@
       <p>{{ c.intro }}</p>
       {% if p.verse %}<p class="verse">«{{ p.verse }}» —{{ p.verse_ref }}</p>{% endif %}
       <ul class="perks">
-        <li><b>Sacar y colgar.</b> {% if p.kind == 'lienzo' %}Marco flotante de madera con colgador puesto; sin marco, va tensado en bastidor.{% else %}Papel de archivo con paspartú, metacrilato y marco de madera.{% endif %}</li>
-        <li><b>Hecho bajo pedido en Europa</b> con tintas pigmentadas que aguantan décadas sin amarillear.</li>
+        <li><b>Llega montado.</b> {% if p.kind == 'lienzo' %}En su marco de madera o, sin marco, tensado en bastidor de madera de 2 cm.{% else %}Lámina en marco con metacrilato protector.{% endif %}</li>
+        <li><b>Impreso bajo pedido</b> en España (en EE. UU. para pedidos de allí).</li>
         <li><b>En casa en 5-8 días laborables:</b> se produce bajo pedido y se envía asegurado.</li>
         <li><b>Envío gratis y asegurado</b>, con embalaje protector.</li>
       </ul>
@@ -39,14 +39,14 @@
       <ul class="spec">
         <li><b>Tema:</b> {{ c.subject }}</li><li><b>Estilo:</b> {{ c.style }}</li><li><b>Paleta:</b> {{ c.palette }}</li>
         <li><b>Orientación:</b> {{ 'horizontal' if p.orient == 'h' else 'vertical' }}</li><li><b>Ideal para:</b> {{ c.best_for }}</li>
-        <li><b>Material:</b> {% if p.kind == 'lienzo' %}lienzo de algodón de calidad museo, impresión giclée con tintas resistentes a la luz{% else %}papel fine art de archivo, impresión giclée, metacrilato protector{% endif %}</li>
+        <li><b>Material:</b> {% if p.kind == 'lienzo' %}lienzo impreso a todo color sobre bastidor de madera FSC de 2 cm; marco flotante de madera FSC{% else %}papel mate de 200 g con margen blanco, metacrilato y marco de madera (el dorado, de aluminio){% endif %}</li>
         <li><b>Marco:</b> {% for f in frames %}{{ f.label }}{% if not loop.last %}, {% endif %}{% endfor %}</li>
         <li><b>Tamaños:</b> {% for s in sizes %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %}. ¿Otro tamaño? Escríbenos a {{ email }}</li>
-        <li><b>Incluye:</b> colgador instalado, llega listo para colgar</li>
+        
         <li><b>Se regala sobre todo en:</b> {{ c.occasions }}</li>
       </ul></div></details>
     <details class="acc"><summary>Envío y garantía</summary><div><ul class="spec">
-      <li>Envío gratis a toda España; también enviamos al resto de Europa y a Estados Unidos</li>
+      <li>Envío gratis a la Península y Baleares; también enviamos al resto de Europa y a Estados Unidos</li>
       <li>Producción bajo pedido y entrega en 5-8 días laborables en España</li>
       <li>Embalaje protector con esquinas reforzadas</li><li>100 % asegurado durante el transporte</li>
       <li>Derecho de desistimiento de 14 días según la ley (ver <a href="/p/devoluciones">devoluciones</a>)</li>

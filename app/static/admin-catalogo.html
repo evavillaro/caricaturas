@@ -14,6 +14,10 @@
   <p class="hint">Da título propio a los productos que comparten título y reparte los clubes de fútbol. Tarda 2-3 minutos.</p>
   <div class="row"><button class="btn btn-primary" id="dedupe">Diferenciar títulos</button><span id="dedst"></span></div>
   <pre id="out3"></pre>
+  <h3>1a. Banco de caras</h3>
+  <p class="hint">24 fotos realistas de frente (12 mujeres, 12 hombres, de 18 a 60 años) que se reutilizan entre productos, como hace la tienda de referencia. ~1,2 € una sola vez.</p>
+  <div class="row"><button class="btn btn-primary" id="faces">Crear banco de caras</button><span id="facest"></span></div>
+  <pre id="out4"></pre>
   <h3>1c. Plantilla fotorrealista del mockup</h3>
   <p class="hint">Genera con IA (0,20 €) la foto del lienzo en blanco apoyado en la pared con el móvil al lado; luego cada producto se encaja en ella sin coste. Pulsa hasta que te guste la vista previa.</p>
   <div class="row"><button class="btn btn-primary" id="tpl">Crear plantilla</button><span id="tplst"></span></div>
@@ -32,6 +36,7 @@ $('#imp').onclick = () => imp(+$('#start').value, +$('#limit').value);
 $('#impall').onclick = async () => { for (let s=0; s<436; s+=50){ $('#start').value = s; const d = await imp(s, 50); if (d.detail) break; } };
 async function gen(redo){ $('#genst').textContent = 'generando…'; const r = await fetch(`/admin/generate-images?token=${token}&limit=10&redo=${redo?'true':'false'}`, {method:'POST'}); const d = await r.json(); $('#out2').textContent = JSON.stringify(d,null,1) + '\n' + $('#out2').textContent; $('#genst').textContent=''; await status(); return d; }
 $('#gen').onclick = () => gen(false);
+$('#faces').onclick = async () => { $('#facest').textContent='generando (3-4 min)…'; const r = await fetch('/admin/make-faces?token='+token,{method:'POST'}); $('#out4').textContent = JSON.stringify(await r.json(),null,1); $('#facest').textContent=''; };
 $('#tpl').onclick = async () => { $('#tplst').textContent='generando…'; const r = await fetch('/admin/make-template?token='+token,{method:'POST'}); const d = await r.json(); $('#tplst').textContent = d.detail ? 'Error: '+d.detail : 'lista'; if(d.preview) $('#tplprev').innerHTML = `<img src="${d.preview}" style="max-width:480px;border-radius:10px;margin-top:10px">`; };
 $('#redo').onclick = async () => { while(true){ const d = await gen(true); if(!d.generated || !d.generated.length) break; } };
 $('#dedupe').onclick = async () => { $('#dedst').textContent='trabajando…'; const r = await fetch('/admin/dedupe-titles?token='+token,{method:'POST'}); $('#out3').textContent = JSON.stringify(await r.json(),null,1); $('#dedst').textContent=''; };

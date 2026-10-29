@@ -163,7 +163,7 @@ async def admin_generate_images(token: str = "", limit: int = 10, before_after: 
     _admin(token)
     if not catalog.ENABLED:
         raise HTTPException(400, "Supabase no configurado")
-    params = {"select": "slug,scene_prompt,short_desc,images", "active": "eq.true", "order": "sort.asc", "limit": str(limit)}
+    params = {"select": "slug,title,group,scene_prompt,short_desc,images", "active": "eq.true", "order": "sort.asc", "limit": str(limit)}
     if not redo:
         params["image_url"] = "is.null"
     rows = await catalog._get("car_products", params)
@@ -183,7 +183,9 @@ async def admin_generate_images(token: str = "", limit: int = 10, before_after: 
                 prompt = r["scene_prompt"] or r["short_desc"]
                 async with _sem:
                     if before_after:
-                        photo = await imaging.generate_photo(prompt)
+                        faces = await catalog.list_faces()
+                        face = catalog.pick_face(faces, r.get("group") or "el", r.get("title") or "", r["slug"])
+                        photo = await catalog.face_image(face) if face else await imaging.generate_photo(prompt)
                         art = await imaging.generate(photo, "", prompt, "", quality=config.env("CATALOG_IMAGE_QUALITY", "medium"))
                     else:
                         photo = None
@@ -202,6 +204,30 @@ async def admin_generate_images(token: str = "", limit: int = 10, before_after: 
             errors.append({"slug": r["slug"], "error": str(e)[:200]})
     catalog._cache["t"] = 0
     return {"generated": done, "errors": errors, "remaining_hint": "repite la llamada hasta que generated venga vacío"}
+
+
+@app.post("/admin/make-faces")
+async def admin_make_faces(token: str = "", per_band: int = 2):
+    """Genera el banco de caras: por género y franja de edad, per_band fotos (24 en total con 2)."""
+    _admin(token)
+    existing = set(await catalog.list_faces())
+    made, errors = [], []
+    for gender in ("mujer", "hombre"):
+        for age in catalog.AGE_BANDS:
+            for n in range(1, per_band + 1):
+                name = f"{gender}-{age}-{n}.jpg"
+                if name in existing:
+                    continue
+                try:
+                    async with _sem:
+                        img = await imaging.generate_photo("", gender, age)
+                    img.thumbnail((900, 900))
+                    await catalog.upload_image(f"_faces/{name}", imaging._jpeg(img, 88))
+                    made.append(name)
+                except Exception as e:  # noqa: BLE001
+                    errors.append({"face": name, "error": str(e)[:200]})
+    catalog._faces_cache.clear()
+    return {"made": made, "errors": errors, "total": len(await catalog.list_faces())}
 
 
 @app.post("/admin/make-template")

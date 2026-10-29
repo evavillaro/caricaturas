@@ -232,3 +232,39 @@ async def ensure_collections():
     rows = [{"slug": s, "title": t, "h1": h, "intro": i, "sort": n} for n, (s, t, h, i) in enumerate(DEFAULT_COLLECTIONS)]
     await _upsert("car_collections", rows)
     _cache["t"] = 0
+
+
+# --- banco de caras (fotos sintéticas reutilizadas entre productos) -------------
+AGE_BANDS = (18, 25, 30, 40, 50, 60)
+_faces_cache: dict = {}
+
+
+async def list_faces() -> list[str]:
+    """Rutas de las caras disponibles en el bucket (_faces/<genero>-<edad>-<n>.jpg)."""
+    if "v" in _faces_cache and time.time() - _faces_cache.get("t", 0) < 300:
+        return _faces_cache["v"]
+    h = _headers()
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.post(f"{SUPABASE_URL}/storage/v1/object/list/caricaturas", headers=h, json={"prefix": "_faces", "limit": 500})
+    names = [o["name"] for o in r.json()] if r.status_code == 200 else []
+    _faces_cache.update(v=names, t=time.time())
+    return names
+
+
+def pick_face(names: list[str], group: str, title: str, slug: str) -> str | None:
+    gender = "mujer" if group in ("ella",) else "hombre"
+    m = re.search(r"\b(18|25|30|40|50|60)\b", title)
+    age = int(m.group(1)) if m else AGE_BANDS[sum(map(ord, slug)) % len(AGE_BANDS)]
+    cands = [n for n in names if n.startswith(f"{gender}-{age}-")] or [n for n in names if n.startswith(f"{gender}-")] or names
+    if not cands:
+        return None
+    return cands[sum(map(ord, slug)) % len(cands)]
+
+
+async def face_image(name: str):
+    from PIL import Image as _I
+    import io as _io
+    async with httpx.AsyncClient(timeout=60) as c:
+        r = await c.get(f"{SUPABASE_URL}/storage/v1/object/public/caricaturas/_faces/{name}")
+    r.raise_for_status()
+    return _I.open(_io.BytesIO(r.content)).convert("RGB")

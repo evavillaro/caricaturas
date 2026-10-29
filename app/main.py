@@ -311,6 +311,60 @@ async def admin_generate_bg(token: str = "", workers: int = 3):
     return {"started": True, "pending": len(queue)}
 
 
+_rooms_bg = {"running": False, "done": 0, "errors": []}
+
+
+def _room_shots(art_bytes: bytes) -> dict:
+    from . import rooms
+    art = Image.open(io.BytesIO(art_bytes)).convert("RGB")
+    out = {}
+    for name in rooms.ROOMS:
+        tpl = rooms.room(name)
+        quad, _ = rooms.detect_green(tpl)
+        img = rooms.in_room(tpl, quad, art, "none", "lienzo")
+        out[name] = imaging._jpeg(img, 86)
+    return out
+
+
+@app.post("/admin/room-mockups")
+async def admin_room_mockups(token: str = "", workers: int = 3, redo: bool = False):
+    """Añade a cada producto 2 fotos del cuadro colgado en una estancia (sin coste de IA)."""
+    _admin(token)
+    if _rooms_bg["running"]:
+        return {"already_running": True, "done": _rooms_bg["done"], "errors": _rooms_bg["errors"][-3:]}
+    rows = await catalog._get("car_products", {"select": "slug,images", "image_url": "not.is.null", "limit": "5000"})
+    queue = [r for r in rows if redo or not any("room-" in u for u in (r.get("images") or []))]
+    import httpx as _hx
+
+    async def one(r):
+        base = f"{catalog.SUPABASE_URL}/storage/v1/object/public/caricaturas/{r['slug']}"
+        try:
+            async with _hx.AsyncClient(timeout=60) as c:
+                art = (await c.get(f"{base}/art.jpg")).content
+            shots = await asyncio.to_thread(_room_shots, art)
+            urls = [await catalog.upload_image(f"{r['slug']}/room-{k}.jpg", v) for k, v in shots.items()]
+            imgs = [u for u in (r.get("images") or []) if "room-" not in u]
+            imgs = imgs[:1] + urls[:1] + imgs[1:2] + urls[1:] + imgs[2:]
+            await catalog._patch("car_products", "slug", r["slug"], {"images": imgs})
+            _rooms_bg["done"] += 1
+        except Exception as e:  # noqa: BLE001
+            _rooms_bg["errors"].append({"slug": r["slug"], "error": str(e)[:200]})
+
+    async def worker():
+        while queue:
+            await one(queue.pop(0))
+
+    async def run():
+        _rooms_bg.update(running=True, done=0, errors=[])
+        try:
+            await asyncio.gather(*[worker() for _ in range(max(1, min(workers, 4)))])
+        finally:
+            _rooms_bg["running"] = False; catalog._cache["t"] = 0
+
+    asyncio.create_task(run())
+    return {"started": True, "pending": len(queue)}
+
+
 @app.get("/admin/catalog-status")
 async def admin_catalog_status(token: str = ""):
     _admin(token)
@@ -318,7 +372,7 @@ async def admin_catalog_status(token: str = ""):
         return {"supabase": False}
     total = await catalog._get("car_products", {"select": "slug", "limit": "5000"})
     with_img = await catalog._get("car_products", {"select": "slug", "image_url": "not.is.null", "limit": "5000"})
-    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436, "bg_running": _bg["running"], "bg_errors": _bg["errors"][-5:]}
+    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436, "bg_running": _bg["running"], "bg_errors": _bg["errors"][-5:], "rooms_running": _rooms_bg["running"], "rooms_done": _rooms_bg["done"], "rooms_errors": _rooms_bg["errors"][-3:]}
 
 
 @app.get("/admin/catalogo", response_class=HTMLResponse)

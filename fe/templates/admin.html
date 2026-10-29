@@ -15,7 +15,7 @@
 
 <h2>3. Diseños y fotos de producto</h2>
 <p class="hint">Genera el diseño con IA (~0,25 €) y monta todas las fotos (pared, marcos, tallas, estancias, detalle). De 2 en 2.</p>
-<div class="row"><button onclick="art(2)">Generar 2</button><button class="g" onclick="artAll()">Generar todos los que falten</button>
+<div class="row"><button onclick="art(2)">Generar 2</button><button class="g" onclick="artBg()">Generar todos los que falten (en el servidor)</button>
 <input id="slug" placeholder="slug para rehacer uno"><button class="g" onclick="artOne()">Rehacer este</button>
 <button class="g" onclick="remock()">Rehacer solo fotos (gratis)</button></div>
 <div class="prev" id="artPrev"></div>
@@ -37,11 +37,12 @@
 const T = {{ token|tojson }};
 const out = s => document.getElementById('out').textContent = (typeof s==='string'?s:JSON.stringify(s,null,1)) + '\n\n' + document.getElementById('out').textContent;
 async function call(u, m='POST', body){ const r = await fetch(u+(u.includes('?')?'&':'?')+'token='+T, {method:m, headers:{'Content-Type':'application/json'}, body: body?JSON.stringify(body):undefined}); const d = await r.json().catch(()=>({error:r.status})); out(d); status(); return d; }
-async function status(){ const s = await (await fetch('/admin/status?token='+T)).json(); document.getElementById('st').textContent = `Supabase ${s.supabase?'OK':'NO'} · OpenAI ${s.openai?'OK':'NO'} · Stripe ${s.stripe?'OK':'NO'} · Gelato ${s.gelato?'OK':'NO'} · ${s.products} productos · ${s.with_art} con diseño · ${s.with_content} con textos · estancias: ${s.rooms.join(', ')||'ninguna'} · UIDs Gelato: ${s.gelato_uids}`; }
+async function status(){ const s = await (await fetch('/admin/status?token='+T)).json(); document.getElementById('st').textContent = `Supabase ${s.supabase?'OK':'NO'} · OpenAI ${s.openai?'OK':'NO'} · Stripe ${s.stripe?'OK':'NO'} · Gelato ${s.gelato?'OK':'NO'} · ${s.products} productos · ${s.with_art} con diseño · ${s.with_content} con textos · estancias: ${s.rooms.join(', ')||'ninguna'} · UIDs Gelato: ${s.gelato_uids}${s.bg_running?' · GENERANDO EN SERVIDOR ('+s.bg_done+' hechos)':''}`; if(s.bg_running) setTimeout(status, 20000); }
 async function room(k){ out('generando '+k+'…'); const d = await call('/admin/room?key='+k); if(d.preview) document.getElementById('roomPrev').insertAdjacentHTML('afterbegin', `<img src="${d.preview}" title="${k}">`); }
 async function allRooms(){ for (const k of {{ rooms|tojson }}) await room(k); }
 function showArt(d){ (d.done||[]).forEach(x => { if(x.main) document.getElementById('artPrev').insertAdjacentHTML('afterbegin', `<a href="/cuadro/${x.slug}" target="_blank"><img src="${x.main}" title="${x.slug}"></a>`); }); }
 async function art(n){ out('generando…'); const d = await call('/admin/art?limit='+n); showArt(d); return d; }
+async function artBg(){ out(await call('/admin/art-bg')); }
 async function artAll(){ while(true){ const d = await art(2); if(!d.done || !d.done.length || d.left===0) break; } }
 async function artOne(){ const s = document.getElementById('slug').value.trim(); if(!s) return; out('rehaciendo '+s+'…'); showArt(await call('/admin/art?limit=1&slug='+encodeURIComponent(s))); }
 async function remock(){ let off=0; while(true){ const d = await call('/admin/remock?limit=8&offset='+off); if(!d.done || !d.done.length) break; off += 8; } }

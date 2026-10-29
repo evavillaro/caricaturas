@@ -2,45 +2,45 @@
 {% block main %}
 <section class="quiz">
   <div class="q-step on" data-step="0">
-    <h1 class="col-h1">Encuentra tu cuadro</h1>
-    <p>El cuadro adecuado te encuentra justo donde estás.</p>
+    <h1 class="col-h1">¿Cuál es tu cuadro?</h1>
+    <p>Cinco preguntas rápidas y te decimos cuál encaja contigo y con tu casa.</p>
     <p class="eyebrow">Tarda 1 minuto</p>
     <button class="btn-primary" onclick="qNext()">Empezar →</button>
   </div>
   <div class="q-step" data-step="1" data-key="para">
-    <p class="eyebrow">Pregunta 1 de 5</p><h2>¿Para quién es?</h2>
-    <button class="q-opt" data-v="yo"><b>Para mi casa</b><span>Una obra que sea parte de mi hogar</span></button>
-    <button class="q-opt" data-v="regalo"><b>Para regalar</b><span>Algo con significado para alguien a quien quiero</span></button>
-    <button class="q-opt" data-v="ambos"><b>Las dos cosas</b><span>Uno para mí y otro para regalar</span></button>
+    <p class="eyebrow">Pregunta 1 de 5</p><h2>¿Es para ti o para regalar?</h2>
+    <button class="q-opt" data-v="yo"><b>Para mí</b><span>Para una pared de mi casa</span></button>
+    <button class="q-opt" data-v="regalo"><b>Es un regalo</b><span>Bautizo, boda, casa nueva, cumpleaños…</span></button>
+    <button class="q-opt" data-v="ambos"><b>Las dos cosas</b><span>Y quizá me quede uno igual</span></button>
   </div>
   <div class="q-step" data-step="2" data-key="necesita">
-    <p class="eyebrow">Pregunta 2 de 5</p><h2>¿Qué necesita tu corazón ahora?</h2>
-    <button class="q-opt" data-v="buscado"><b>Sentirme vista y no olvidada</b><span>Recordar que Dios me busca</span></button>
-    <button class="q-opt" data-v="paz"><b>Paz en medio del caos</b><span>Calma, quietud, protección</span></button>
-    <button class="q-opt" data-v="sanar"><b>Sanar y recomponerme</b><span>Algo tocado por la gracia</span></button>
-    <button class="q-opt" data-v="valor"><b>Valor para seguir</b><span>Fe cuando el camino no está claro</span></button>
-    <button class="q-opt" data-v="maria"><b>Sentir a la Virgen cerca</b><span>Una Madre que cuida de mi casa</span></button>
+    <p class="eyebrow">Pregunta 2 de 5</p><h2>¿Qué te gustaría que te recordara cada día?</h2>
+    <button class="q-opt" data-v="buscado"><b>Que nadie se queda atrás</b><span>El pastor que sale a buscar</span></button>
+    <button class="q-opt" data-v="paz"><b>Calma</b><span>Para los días con demasiado ruido</span></button>
+    <button class="q-opt" data-v="sanar"><b>Fuerza para recuperarse</b><span>Para una etapa difícil</span></button>
+    <button class="q-opt" data-v="valor"><b>Confianza</b><span>Cuando no se ve el camino</span></button>
+    <button class="q-opt" data-v="maria"><b>La Virgen</b><span>Una Madre que cuida de la casa</span></button>
   </div>
   <div class="q-step" data-step="3" data-key="estancia">
-    <p class="eyebrow">Pregunta 3 de 5</p><h2>¿Para qué estancia es?</h2>
-    <button class="q-opt" data-v="recibidor"><b>Recibidor o pasillo</b><span>Lo primero que ves al llegar</span></button>
-    <button class="q-opt" data-v="salon"><b>Salón</b><span>El corazón de la casa</span></button>
-    <button class="q-opt" data-v="comedor"><b>Comedor</b><span>Donde nos reunimos a la mesa</span></button>
-    <button class="q-opt" data-v="dormitorio"><b>Dormitorio</b><span>Donde empiezo y termino el día</span></button>
-    <button class="q-opt" data-v="infantil"><b>Habitación infantil</b><span>Un pequeño espacio sagrado</span></button>
+    <p class="eyebrow">Pregunta 3 de 5</p><h2>¿Dónde lo vas a colgar?</h2>
+    <button class="q-opt" data-v="recibidor"><b>Entrada o pasillo</b><span>Para recibir a quien llega</span></button>
+    <button class="q-opt" data-v="salon"><b>Salón</b><span>Encima del sofá o de la chimenea</span></button>
+    <button class="q-opt" data-v="comedor"><b>Comedor</b><span>Junto a la mesa de los domingos</span></button>
+    <button class="q-opt" data-v="dormitorio"><b>Dormitorio</b><span>Sobre la cama o al lado</span></button>
+    <button class="q-opt" data-v="infantil"><b>Cuarto de los peques</b><span>Para que crezcan acompañados</span></button>
   </div>
   <div class="q-step" data-step="4" data-key="estilo">
-    <p class="eyebrow">Pregunta 4 de 5</p><h2>¿Cómo describirías tu casa?</h2>
-    <button class="q-opt" data-v="neutro"><b>Tranquila y neutra</b><span>Beige, marfil, blancos cálidos</span></button>
-    <button class="q-opt" data-v="calido"><b>Cálida y natural</b><span>Madera, terracota, ámbar</span></button>
-    <button class="q-opt" data-v="suave"><b>Suave y delicada</b><span>Rosa empolvado, salvia, pasteles</span></button>
-    <button class="q-opt" data-v="minimal"><b>Moderna y minimalista</b><span>Líneas limpias y contraste</span></button>
+    <p class="eyebrow">Pregunta 4 de 5</p><h2>¿Qué colores hay en esa pared?</h2>
+    <button class="q-opt" data-v="neutro"><b>Blancos y beiges</b><span>Lino, arena, crudo</span></button>
+    <button class="q-opt" data-v="calido"><b>Madera y barro</b><span>Tonos tostados y terracota</span></button>
+    <button class="q-opt" data-v="suave"><b>Pasteles</b><span>Rosa, salvia, azul claro</span></button>
+    <button class="q-opt" data-v="minimal"><b>Grises y negro</b><span>Contraste y líneas rectas</span></button>
   </div>
   <div class="q-step" data-step="5" data-key="importa">
-    <p class="eyebrow">Pregunta 5 de 5</p><h2>¿Qué es lo que más te importa?</h2>
-    <button class="q-opt" data-v="historia"><b>La historia que cuenta</b><span>Cuanto más significado, mejor</span></button>
-    <button class="q-opt" data-v="estetica"><b>Cómo queda en la pared</b><span>Primero bonito, luego significativo</span></button>
-    <button class="q-opt" data-v="versiculo"><b>El versículo</b><span>Una frase con la que vivir cada día</span></button>
+    <p class="eyebrow">Pregunta 5 de 5</p><h2>¿Qué pesa más para ti?</h2>
+    <button class="q-opt" data-v="historia"><b>El pasaje que cuenta</b><span>Que tenga una historia detrás</span></button>
+    <button class="q-opt" data-v="estetica"><b>Que quede precioso</b><span>Que combine con todo</span></button>
+    <button class="q-opt" data-v="versiculo"><b>Una frase para leer</b><span>Un salmo o una oración a la vista</span></button>
   </div>
   <div class="q-step" data-step="6">
     <p class="eyebrow">Tu cuadro</p>
@@ -75,7 +75,7 @@ function qScore(p){
 function qShow(){
   const top = PRODS.map(p => [qScore(p), p]).sort((a,b)=>b[0]-a[0]).slice(0,3).map(x=>x[1]);
   const [a, ...rest] = top;
-  document.getElementById('qResult').innerHTML = `<a class="q-main" href="/cuadro/${a.slug}">${a.img?`<img src="${a.img}" alt="">`:''}<p class="card-title">${a.title}</p><p class="card-price">Desde ${a.from_price} €</p><span class="btn-primary">Verlo en mi casa →</span></a>
+  document.getElementById('qResult').innerHTML = `<a class="q-main" href="/cuadro/${a.slug}">${a.img?`<img src="${a.img}" alt="">`:''}<p class="card-title">${a.title}</p><p class="card-price">Desde ${a.from_price} €</p><span class="btn-primary">Ver el cuadro →</span></a>
     <p class="eyebrow">También para ti</p><div class="q-more">${rest.map(p=>`<a href="/cuadro/${p.slug}">${p.img?`<img src="${p.img}" alt="">`:''}<p>${p.title}</p></a>`).join('')}</div>`;
 }
 </script>

@@ -26,10 +26,12 @@
     <div class="desc">
       <p>{{ c.intro }}</p>
       {% if p.verse %}<p class="verse">«{{ p.verse }}» —{{ p.verse_ref }}</p>{% endif %}
-      <p>✦ <b>Listo para colgar</b>, con colgador ya instalado.{% if p.kind == 'lienzo' %} Marco flotante de madera; la opción sin marco va tensada en bastidor de madera.{% else %} Papel fine art de archivo con paspartú y marco de madera.{% endif %}</p>
-      <p>✦ <b>Impreso en Europa</b> con tintas pigmentadas que no amarillean.</p>
-      <p>✦ <b>Envío rápido</b>: se produce en 2-4 días laborables y llega en 3-5 más.</p>
-      <p>✦ <b>Entrega tranquila</b>: envío gratis ✓ embalaje protector ✓ asegurado ✓ devolución en 30 días ✓</p>
+      <ul class="perks">
+        <li><b>Sacar y colgar.</b> {% if p.kind == 'lienzo' %}Marco flotante de madera con colgador puesto; sin marco, va tensado en bastidor.{% else %}Papel de archivo con paspartú, metacrilato y marco de madera.{% endif %}</li>
+        <li><b>Hecho bajo pedido en Europa</b> con tintas pigmentadas que aguantan décadas sin amarillear.</li>
+        <li><b>En casa en una semana:</b> 2-4 días de producción y 3-5 de envío.</li>
+        <li><b>Sin riesgo:</b> envío gratis y asegurado, y 30 días para devolverlo.</li>
+      </ul>
     </div>
 
     <details class="acc"><summary>Detalles de la obra</summary><div>

@@ -137,7 +137,7 @@ async def quiz(request: Request):
     prods = [card(p) for p in await db.products()]
     slim = [{"slug": p["slug"], "title": p["title"], "img": p["img"], "theme": p["theme"], "palette": p["palette"], "orient": p["orient"],
              "collections": p.get("collections") or [], "from_price": p["from_price"], "best": p.get("bestseller")} for p in prods]
-    return T.TemplateResponse(request, "quiz.html", ctx(request, products=json.dumps(slim), title=f"Encuentra tu cuadro · {config.BRAND}"))
+    return T.TemplateResponse(request, "quiz.html", ctx(request, products=json.dumps(slim), title=f"¿Cuál es tu cuadro? · {config.BRAND}"))
 
 
 PAGES = {
@@ -253,7 +253,7 @@ async def admin_status(token: str = ""):
     uids = await shop.gelato_uids()
     return {"supabase": db.ENABLED, "openai": bool(config.OPENAI_API_KEY), "stripe": bool(config.STRIPE_SECRET_KEY), "gelato": bool(config.GELATO_API_KEY),
             "products": len(prods), "with_art": sum(1 for p in prods if p.get("art_url")), "with_content": sum(1 for p in prods if (p.get("content") or {}).get("intro")),
-            "rooms": sorted(rooms), "gelato_uids": len(uids)}
+            "rooms": sorted(rooms), "gelato_uids": len(uids), "bg_running": _bg["running"], "bg_done": _bg["done"], "bg_errors": _bg["errors"][-3:]}
 
 
 @app.post("/admin/seed")
@@ -430,3 +430,40 @@ async def admin_coupon(token: str = ""):
     c = stripe.Coupon.create(percent_off=config.WELCOME_DISCOUNT_PCT, duration="once", name=f"Bienvenida {config.BRAND}")
     pc = stripe.PromotionCode.create(coupon=c.id, code="BIENVENIDA15", restrictions={"first_time_transaction": True})
     return {"ok": True, "coupon": c.id, "promotion_code": pc.id}
+
+
+_bg = {"running": False, "done": 0, "errors": []}
+
+
+@app.post("/admin/art-bg")
+async def admin_art_bg(token: str = "", workers: int = 3):
+    """Genera en el servidor todos los diseños que faltan, 3 a la vez (no hace falta la pestaña abierta)."""
+    _auth(token)
+    if _bg["running"]:
+        return {"already_running": True, "done": _bg["done"], "errors": _bg["errors"][-5:]}
+    queue = [p for p in await db.products(force=True) if not p.get("art_url")]
+    rooms = await _load_rooms()
+
+    async def one(p):
+        try:
+            a = await art.generate_art(p)
+            art_url = await db.upload(f"{p['slug']}/art.jpg", art.jpeg(a, 96))
+            imgs = await build_images(p, a, rooms)
+            await db.patch("fe_products", "slug", p["slug"], {"art_url": art_url, "images": imgs})
+            _bg["done"] += 1
+        except Exception as e:  # noqa: BLE001
+            log.exception("art %s", p["slug"]); _bg["errors"].append({"slug": p["slug"], "error": str(e)[:200]})
+
+    async def worker():
+        while queue:
+            await one(queue.pop(0))
+
+    async def run():
+        _bg.update(running=True, done=0, errors=[])
+        try:
+            await asyncio.gather(*[worker() for _ in range(max(1, min(workers, 4)))])
+        finally:
+            _bg["running"] = False; db.invalidate()
+
+    asyncio.create_task(run())
+    return {"started": True, "pending": len(queue)}

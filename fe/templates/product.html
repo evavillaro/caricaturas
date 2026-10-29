@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="pdp">
+  <div class="gallery">
+    <div class="g-main">{% if p.images %}<img id="gMain" src="{{ p.images[0].url }}" alt="{{ p.title }}">{% else %}<div class="ph big">{{ p.title }}</div>{% endif %}</div>
+    <div class="g-thumbs">
+      {% for im in p.images %}<button class="thumb{% if loop.first %} on{% endif %}" data-src="{{ im.url }}" data-frame="{{ im.frame or '' }}" data-kind="{{ im.kind }}"><img src="{{ im.url }}" alt="" loading="lazy"></button>{% endfor %}
+    </div>
+  </div>
+  <div class="buy">
+    <h1 class="p-title">{{ p.title }}</h1>
+    {% if reviews %}<a href="#opiniones" class="p-rev">★★★★★ {{ reviews|length }} opiniones</a>{% endif %}
+    <p class="p-price"><span id="price">{{ p.from_price|eur }}</span> <span class="tax">IVA incluido · envío gratis</span></p>
+    <div class="opt">
+      <p class="opt-l">Marco: <b id="frameName">{{ frames[0].label }}</b></p>
+      <div class="chips" id="frames">{% for f in frames %}<button class="chip frame-chip f-{{ f.key }}{% if loop.first %} on{% endif %}" data-k="{{ f.key }}" data-l="{{ f.label }}" title="{{ f.label }}"><span></span></button>{% endfor %}</div>
+    </div>
+    <div class="opt">
+      <p class="opt-l">Tamaño (cm):</p>
+      <div class="chips" id="sizes">{% for s in sizes %}<button class="chip{% if loop.first %} on{% endif %}" data-k="{{ s.key }}">{{ s.label }}</button>{% endfor %}</div>
+    </div>
+    <div class="qty"><button type="button" onclick="feQty(-1)">−</button><span id="qty">1</span><button type="button" onclick="feQty(1)">+</button></div>
+    <button class="btn-primary" id="add">Añadir al carrito ➔</button>
+    <button class="btn-dark" id="buyNow">Comprar ya</button>
+
+    <div class="desc">
+      <p>{{ c.intro }}</p>
+      {% if p.verse %}<p class="verse">«{{ p.verse }}» —{{ p.verse_ref }}</p>{% endif %}
+      <p>✦ <b>Listo para colgar</b>, con colgador ya instalado.{% if p.kind == 'lienzo' %} Marco flotante de madera; la opción sin marco va tensada en bastidor de madera.{% else %} Papel fine art de archivo con paspartú y marco de madera.{% endif %}</p>
+      <p>✦ <b>Impreso en Europa</b> con tintas pigmentadas que no amarillean.</p>
+      <p>✦ <b>Envío rápido</b>: se produce en 2-4 días laborables y llega en 3-5 más.</p>
+      <p>✦ <b>Entrega tranquila</b>: envío gratis ✓ embalaje protector ✓ asegurado ✓ devolución en 30 días ✓</p>
+    </div>
+
+    <details class="acc"><summary>Detalles de la obra</summary><div>
+      <p>{{ c.details_intro }}</p>
+      <ul class="spec">
+        <li><b>Tema:</b> {{ c.subject }}</li><li><b>Estilo:</b> {{ c.style }}</li><li><b>Paleta:</b> {{ c.palette }}</li>
+        <li><b>Orientación:</b> {{ 'horizontal' if p.orient == 'h' else 'vertical' }}</li><li><b>Ideal para:</b> {{ c.best_for }}</li>
+        <li><b>Material:</b> {% if p.kind == 'lienzo' %}lienzo de algodón de calidad museo, impresión giclée con tintas resistentes a la luz{% else %}papel fine art de archivo, impresión giclée, metacrilato protector{% endif %}</li>
+        <li><b>Marco:</b> {% for f in frames %}{{ f.label }}{% if not loop.last %}, {% endif %}{% endfor %}</li>
+        <li><b>Tamaños:</b> {% for s in sizes %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %}. ¿Otro tamaño? Escríbenos a {{ email }}</li>
+        <li><b>Incluye:</b> colgador instalado, llega listo para colgar</li>
+        <li><b>Se regala sobre todo en:</b> {{ c.occasions }}</li>
+      </ul></div></details>
+    <details class="acc"><summary>Envío y garantía</summary><div><ul class="spec">
+      <li>Envío gratis a toda España; también enviamos al resto de Europa y a América</li>
+      <li>Producción en 2-4 días laborables y entrega en 3-5 días</li>
+      <li>Embalaje protector con esquinas reforzadas</li><li>100 % asegurado durante el transporte</li>
+      <li>Devoluciones y cambios hasta 30 días después de la entrega</li>
+      <li>Si llega con algún daño, escríbenos a {{ email }} y lo reponemos sin coste</li></ul></div></details>
+    {% if c.about %}<details class="acc"><summary>{{ c.about_title }}</summary><div>{% for para in c.about.split('\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div></details>{% endif %}
+    {% if c.faq %}<details class="acc"><summary>Preguntas sobre {{ p.title }}</summary><div>{% for f in c.faq %}<p class="faq-q">{{ f.q }}</p><p>{{ f.a }}</p>{% endfor %}</div></details>{% endif %}
+  </div>
+</section>
+
+<section class="section" id="opiniones">
+  <h2 class="center serif">Opiniones de clientes</h2>
+  {% if reviews %}
+    <div class="rev-list">{% for r in reviews %}<div class="rev-row"><p class="stars">{{ '★' * r.rating }}</p><p><b>{{ r.name }}</b>{% if r.verified %} · compra verificada{% endif %} · {{ r.created_at[:10] }}</p><p>{{ r.body }}</p></div>{% endfor %}</div>
+  {% else %}
+    <p class="center muted">Todavía no hay opiniones de este cuadro. Cuando lo recibas, te pediremos la tuya.</p>
+  {% endif %}
+</section>
+
+{% if related %}
+<section class="section"><p class="eyebrow center">También te puede gustar</p>{% with products=related %}{% include "_grid.html" %}{% endwith %}</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+const P = {slug: {{ p.slug|tojson }}, title: {{ p.title|tojson }}, kind: {{ p.kind|tojson }}, img: {{ (p.img or '')|tojson }}};
+const PRICES = {{ prices|safe }};
+let sel = {frame: {{ frames[0].key|tojson }}, size: {{ sizes[0].key|tojson }}, qty: 1};
+function fePrice(){ const v = PRICES[sel.size+'|'+sel.frame]; document.getElementById('price').textContent = v.toLocaleString('es-ES') + ' €'; return v; }
+function feQty(d){ sel.qty = Math.max(1, Math.min(10, sel.qty + d)); document.getElementById('qty').textContent = sel.qty; }
+document.querySelectorAll('#frames .chip').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#frames .chip').forEach(x => x.classList.remove('on')); b.classList.add('on');
+  sel.frame = b.dataset.k; document.getElementById('frameName').textContent = b.dataset.l; fePrice();
+  const t = document.querySelector('.thumb[data-frame="'+sel.frame+'"]'); if (t) t.click();
+});
+document.querySelectorAll('#sizes .chip').forEach(b => b.onclick = () => { document.querySelectorAll('#sizes .chip').forEach(x => x.classList.remove('on')); b.classList.add('on'); sel.size = b.dataset.k; fePrice(); });
+document.querySelectorAll('.thumb').forEach(b => b.onclick = () => { document.querySelectorAll('.thumb').forEach(x => x.classList.remove('on')); b.classList.add('on'); document.getElementById('gMain').src = b.dataset.src; });
+function item(){ return {slug: P.slug, title: P.title, kind: P.kind, size: sel.size, frame: sel.frame, frameName: document.getElementById('frameName').textContent, qty: sel.qty, price: fePrice(), img: P.img}; }
+document.getElementById('add').onclick = () => { feCartAdd(item()); track('add_to_cart', {value: fePrice()*sel.qty, item: P.title}); location.href = '/carrito'; };
+document.getElementById('buyNow').onclick = () => feCheckout([item()]);
+fePrice(); track('view_item', {value: fePrice(), item: P.title});
+</script>
+{% endblock %}

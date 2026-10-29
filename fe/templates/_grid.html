@@ -1,0 +1,11 @@
+<div class="grid">
+{% for p in products %}
+  <a class="card" href="/cuadro/{{ p.slug }}">
+    <div class="card-img">
+      {% if p.img %}<img src="{{ p.img }}" alt="{{ p.title }}, cuadro religioso moderno" loading="lazy">{% if p.img2 %}<img class="alt" src="{{ p.img2 }}" alt="" loading="lazy">{% endif %}
+      {% else %}<div class="ph">{{ p.title }}</div>{% endif %}
+    </div>
+    <div class="card-body"><p class="card-title">{{ p.title }}</p><p class="card-price">Desde {{ p.from_price|eur }}</p></div>
+  </a>
+{% endfor %}
+</div>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="quiz">
+  <div class="q-step on" data-step="0">
+    <h1 class="col-h1">Encuentra tu cuadro</h1>
+    <p>El cuadro adecuado te encuentra justo donde estás.</p>
+    <p class="eyebrow">Tarda 1 minuto</p>
+    <button class="btn-primary" onclick="qNext()">Empezar →</button>
+  </div>
+  <div class="q-step" data-step="1" data-key="para">
+    <p class="eyebrow">Pregunta 1 de 5</p><h2>¿Para quién es?</h2>
+    <button class="q-opt" data-v="yo"><b>Para mi casa</b><span>Una obra que sea parte de mi hogar</span></button>
+    <button class="q-opt" data-v="regalo"><b>Para regalar</b><span>Algo con significado para alguien a quien quiero</span></button>
+    <button class="q-opt" data-v="ambos"><b>Las dos cosas</b><span>Uno para mí y otro para regalar</span></button>
+  </div>
+  <div class="q-step" data-step="2" data-key="necesita">
+    <p class="eyebrow">Pregunta 2 de 5</p><h2>¿Qué necesita tu corazón ahora?</h2>
+    <button class="q-opt" data-v="buscado"><b>Sentirme vista y no olvidada</b><span>Recordar que Dios me busca</span></button>
+    <button class="q-opt" data-v="paz"><b>Paz en medio del caos</b><span>Calma, quietud, protección</span></button>
+    <button class="q-opt" data-v="sanar"><b>Sanar y recomponerme</b><span>Algo tocado por la gracia</span></button>
+    <button class="q-opt" data-v="valor"><b>Valor para seguir</b><span>Fe cuando el camino no está claro</span></button>
+    <button class="q-opt" data-v="maria"><b>Sentir a la Virgen cerca</b><span>Una Madre que cuida de mi casa</span></button>
+  </div>
+  <div class="q-step" data-step="3" data-key="estancia">
+    <p class="eyebrow">Pregunta 3 de 5</p><h2>¿Para qué estancia es?</h2>
+    <button class="q-opt" data-v="recibidor"><b>Recibidor o pasillo</b><span>Lo primero que ves al llegar</span></button>
+    <button class="q-opt" data-v="salon"><b>Salón</b><span>El corazón de la casa</span></button>
+    <button class="q-opt" data-v="comedor"><b>Comedor</b><span>Donde nos reunimos a la mesa</span></button>
+    <button class="q-opt" data-v="dormitorio"><b>Dormitorio</b><span>Donde empiezo y termino el día</span></button>
+    <button class="q-opt" data-v="infantil"><b>Habitación infantil</b><span>Un pequeño espacio sagrado</span></button>
+  </div>
+  <div class="q-step" data-step="4" data-key="estilo">
+    <p class="eyebrow">Pregunta 4 de 5</p><h2>¿Cómo describirías tu casa?</h2>
+    <button class="q-opt" data-v="neutro"><b>Tranquila y neutra</b><span>Beige, marfil, blancos cálidos</span></button>
+    <button class="q-opt" data-v="calido"><b>Cálida y natural</b><span>Madera, terracota, ámbar</span></button>
+    <button class="q-opt" data-v="suave"><b>Suave y delicada</b><span>Rosa empolvado, salvia, pasteles</span></button>
+    <button class="q-opt" data-v="minimal"><b>Moderna y minimalista</b><span>Líneas limpias y contraste</span></button>
+  </div>
+  <div class="q-step" data-step="5" data-key="importa">
+    <p class="eyebrow">Pregunta 5 de 5</p><h2>¿Qué es lo que más te importa?</h2>
+    <button class="q-opt" data-v="historia"><b>La historia que cuenta</b><span>Cuanto más significado, mejor</span></button>
+    <button class="q-opt" data-v="estetica"><b>Cómo queda en la pared</b><span>Primero bonito, luego significativo</span></button>
+    <button class="q-opt" data-v="versiculo"><b>El versículo</b><span>Una frase con la que vivir cada día</span></button>
+  </div>
+  <div class="q-step" data-step="6">
+    <p class="eyebrow">Tu cuadro</p>
+    <div id="qResult"></div>
+    <div class="q-disc">
+      <p><b>¿Quieres un {{ discount }} % de descuento en este cuadro?</b> Déjanos tu email y te lo enviamos.</p>
+      <form onsubmit="return feSubscribe(event,'quiz')"><input type="email" name="email" placeholder="Tu email" required><button>Lo quiero →</button></form>
+      <p class="popup-ok" hidden>✦ Tu código es <b>BIENVENIDA15</b>. Úsalo al pagar.</p>
+    </div>
+    <button class="link" onclick="location.reload()">↩ Empezar de nuevo</button>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const PRODS = {{ products|safe }};
+const A = {}; let step = 0;
+function qNext(){ document.querySelector('.q-step.on').classList.remove('on'); step++; document.querySelector('.q-step[data-step="'+step+'"]').classList.add('on'); if(step===6) qShow(); window.scrollTo(0,0); }
+document.querySelectorAll('.q-opt').forEach(b => b.onclick = () => { A[b.closest('.q-step').dataset.key] = b.dataset.v; qNext(); });
+function qScore(p){
+  let s = p.best ? 2 : 0; const c = p.collections;
+  const need = {buscado:['oveja-perdida','buen-pastor'], paz:['salmo-23','camina-sobre-agua','salmo-91'], sanar:['recuperacion'], valor:['camino','jesus'], maria:['virgen-maria']}[A.necesita]||[];
+  need.forEach(k => { if (c.includes(k) || p.theme===k) s += 5; });
+  if (c.includes(A.estancia)) s += 3;
+  if (A.estancia==='infantil' && c.includes('infantil')) s += 4;
+  const pal = {neutro:['beige','blanco','dorado'], calido:['tierra','marron'], suave:['rosa','salvia','azul'], minimal:['negro','gris','oscuro']}[A.estilo]||[];
+  if (pal.includes(p.palette)) s += 3;
+  if (A.importa==='versiculo' && c.includes('versiculos')) s += 3;
+  if (A.importa==='estetica' && p.theme && ['camina-sobre-agua','cruz','buen-pastor','oveja-perdida'].includes(p.theme)) s += 2;
+  return s + Math.random();
+}
+function qShow(){
+  const top = PRODS.map(p => [qScore(p), p]).sort((a,b)=>b[0]-a[0]).slice(0,3).map(x=>x[1]);
+  const [a, ...rest] = top;
+  document.getElementById('qResult').innerHTML = `<a class="q-main" href="/cuadro/${a.slug}">${a.img?`<img src="${a.img}" alt="">`:''}<p class="card-title">${a.title}</p><p class="card-price">Desde ${a.from_price} €</p><span class="btn-primary">Verlo en mi casa →</span></a>
+    <p class="eyebrow">También para ti</p><div class="q-more">${rest.map(p=>`<a href="/cuadro/${p.slug}">${p.img?`<img src="${p.img}" alt="">`:''}<p>${p.title}</p></a>`).join('')}</div>`;
+}
+</script>
+{% endblock %}

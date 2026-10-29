@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="section">
+  <h1 class="col-h1">{{ c.h1 }}</h1>
+  <p class="col-intro">{{ c.intro }}</p>
+  <div class="col-bar"><span>{{ products|length }} cuadros</span><a href="?orden=precio">Ordenar por precio</a></div>
+  {% include "_grid.html" %}
+</section>
+{% endblock %}

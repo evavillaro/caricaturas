@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="section narrow">
+  <h1 class="col-h1">Tu carrito</h1>
+  <div id="cart"></div>
+  <div id="cartFoot" hidden>
+    <p class="cart-total">Total: <b id="total"></b> <span class="tax">IVA incluido · envío gratis</span></p>
+    <button class="btn-primary" onclick="feCheckout(feCart())">Finalizar compra ➔</button>
+    <p class="muted center">Pago seguro con tarjeta, Apple Pay o Google Pay. ¿Tienes el código BIENVENIDA15? Lo puedes poner en el siguiente paso.</p>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+function render(){
+  const c = feCart(), el = document.getElementById('cart');
+  if (!c.length){ el.innerHTML = '<p class="muted">Tu carrito está vacío. <a href="/coleccion/todos">Ver cuadros</a></p>'; document.getElementById('cartFoot').hidden = true; return; }
+  el.innerHTML = c.map((i,n) => `<div class="cart-row">${i.img?`<img src="${i.img}" alt="">`:''}<div><p><b>${i.title}</b></p><p class="muted">${i.kind==='lienzo'?'Lienzo':'Lámina enmarcada'} ${i.size} cm · ${i.frameName}</p>
+    <p>${i.qty} × ${i.price.toLocaleString('es-ES')} €</p><button class="link" onclick="feCartRemove(${n});render()">Quitar</button></div></div>`).join('');
+  document.getElementById('total').textContent = c.reduce((s,i)=>s+i.price*i.qty,0).toLocaleString('es-ES') + ' €';
+  document.getElementById('cartFoot').hidden = false;
+}
+render();
+</script>
+{% endblock %}

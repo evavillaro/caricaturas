@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title or brand }}</title>
+<meta name="description" content="{{ description or 'Cuadros religiosos modernos: arte cristiano y católico en tonos neutros para casas modernas.' }}">
+<link rel="canonical" href="{{ base_url }}{{ request.url.path }}">
+<meta property="og:title" content="{{ title or brand }}">
+<meta property="og:description" content="{{ description or '' }}">
+{% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=EB+Garamond:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/fe.css?v=1">
+<script>
+window.__IDS = {{ ids|tojson }};
+(function(){ const I = window.__IDS;
+  if (I.ga4 || I.gads) { const s=document.createElement('script'); s.async=true; s.src='https://www.googletagmanager.com/gtag/js?id='+(I.ga4||I.gads); document.head.appendChild(s);
+    window.dataLayer=window.dataLayer||[]; window.gtag=function(){dataLayer.push(arguments)}; gtag('js', new Date()); if(I.ga4) gtag('config', I.ga4); if(I.gads) gtag('config', I.gads); }
+  if (I.meta) { !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init', I.meta); fbq('track', 'PageView'); }
+  if (I.clarity) { (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, "clarity", "script", I.clarity); }
+  if (I.pinterest) { !function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js"); pintrk('load', I.pinterest); pintrk('page'); }
+  window.track = function(ev, d){ d=d||{}; try{ if(window.gtag){ gtag('event', ev, d); if(ev==='purchase'&&I.gads&&I.gads_label) gtag('event','conversion',{send_to:I.gads+'/'+I.gads_label,value:d.value,currency:'EUR',transaction_id:d.transaction_id}); }
+    if(window.fbq){ const m={view_item:'ViewContent',add_to_cart:'AddToCart',begin_checkout:'InitiateCheckout',purchase:'Purchase',sign_up:'Lead'}; fbq('track', m[ev]||ev, {value:d.value,currency:'EUR',content_name:d.item}); }
+    if(window.pintrk){ const m={add_to_cart:'addtocart',purchase:'checkout',sign_up:'signup'}; if(m[ev]) pintrk('track', m[ev], {value:d.value,currency:'EUR'}); } }catch(e){} };
+})();
+</script>
+</head>
+<body>
+<div class="announce"><div class="announce-track"><span>Envío gratis a toda España</span><span>Listo para colgar</span><span>Devolución en 30 días</span><span>Impreso en Europa con tintas de archivo</span></div></div>
+<header class="site">
+  <button class="burger" aria-label="Menú" onclick="document.body.classList.toggle('menu-open')"><span></span><span></span><span></span></button>
+  <a class="logo" href="/">{{ brand }}</a>
+  <div class="hicons">
+    <a href="/encuentra-tu-cuadro" class="hlink">Encuentra tu cuadro</a>
+    <a href="/carrito" class="cart-link" aria-label="Carrito">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 7h14l-1.2 12.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8L5 7Z"/><path d="M9 7V6a3 3 0 0 1 6 0v1"/></svg>
+      <span class="cart-count" id="cartCount"></span></a>
+  </div>
+</header>
+<nav class="megamenu" aria-label="Menú principal">
+  <div class="mm-inner">
+  {% for group, cols in menu.items() %}
+    <details class="mm-group"><summary>{{ group }}</summary>
+      <ul>{% for c in cols %}<li><a href="/coleccion/{{ c.slug }}">{{ c.title }}</a></li>{% endfor %}</ul>
+    </details>
+  {% endfor %}
+    <details class="mm-group"><summary>Ayuda</summary><ul>
+      <li><a href="/encuentra-tu-cuadro">Encuentra tu cuadro</a></li><li><a href="/p/preguntas-frecuentes">Preguntas frecuentes</a></li>
+      <li><a href="/p/nuestra-historia">Nuestra historia</a></li><li><a href="/p/contacto">Ayuda y contacto</a></li></ul></details>
+  </div>
+</nav>
+<main>{% block main %}{% endblock %}</main>
+<footer class="site-footer">
+  <div class="f-inner">
+    <div class="f-col">
+      <a href="/p/preguntas-frecuentes">Preguntas frecuentes</a><a href="/p/contacto">Ayuda y contacto</a><a href="/p/nuestra-historia">Nuestra historia</a>
+      <a href="/p/envios">Política de envíos</a><a href="/p/devoluciones">Devoluciones y cambios</a><a href="/p/privacidad">Política de privacidad</a>
+      <a href="/p/condiciones">Condiciones de venta</a><a href="/p/aviso-legal">Aviso legal</a>
+    </div>
+    <div class="f-col f-brand"><span class="logo small">{{ brand }}</span><p>Arte cristiano y católico para casas modernas.</p></div>
+    <div class="f-col">
+      <p class="f-title">{{ discount }} % en tu primer cuadro</p>
+      <form class="nl" onsubmit="return feSubscribe(event,'footer')"><input type="email" name="email" placeholder="Tu email" required><button>Unirme</button></form>
+      <p class="f-small">© {{ year }} {{ brand }} · Comartinvi S.L.</p>
+    </div>
+  </div>
+</footer>
+<div class="popup" id="popup" hidden>
+  <div class="popup-card">
+    <button class="popup-x" onclick="feClosePopup()" aria-label="Cerrar">×</button>
+    <p class="popup-brand">{{ brand|upper }}</p>
+    <p class="popup-title">¿Quieres un {{ discount }} % de descuento?</p>
+    <form onsubmit="return feSubscribe(event,'popup')"><input type="email" name="email" placeholder="Email" required><button>Quiero mi descuento →</button></form>
+    <p class="popup-ok" hidden>✦ Tu código es <b>BIENVENIDA15</b>. Úsalo al pagar.</p>
+  </div>
+</div>
+<script src="/static/fe.js?v=1"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

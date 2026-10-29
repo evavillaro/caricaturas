@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="section narrow center">
+  {% if o and o.status in ('paid', 'sent_to_print', 'paid_pending_print', 'paid_demo', 'print_error') %}
+    <h1 class="col-h1">¡Gracias por tu pedido!</h1>
+    <p>Pedido <b>{{ o.id }}</b>. Te hemos enviado el recibo por email.</p>
+    <p>Tu cuadro entra ahora en producción (2-4 días laborables) y te llegará en 3-5 días más. Si tienes cualquier duda, escríbenos a {{ email }}.</p>
+    <script>try{ localStorage.removeItem('fe_cart'); if(!sessionStorage.getItem('p_{{ o.id }}')){ track('purchase', {value: {{ (o.amount_cents or 0) / 100 }}, transaction_id: '{{ o.id }}'}); sessionStorage.setItem('p_{{ o.id }}','1'); } }catch(e){}</script>
+  {% else %}
+    <h1 class="col-h1">Comprobando tu pago…</h1>
+    <p>Si acabas de pagar, espera unos segundos y recarga la página. Si no se completa, escríbenos a {{ email }}.</p>
+  {% endif %}
+  <p><a class="btn-outline" href="/">Volver a la tienda</a></p>
+</section>
+{% endblock %}

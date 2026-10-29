@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="hero">
+  {% if hero %}<img src="{{ hero }}" alt="Cuadro religioso moderno en un salón" class="hero-img">{% else %}<div class="hero-img hero-ph"></div>{% endif %}
+</section>
+<section class="band"><span class="band-big">Jesús</span><span class="band-small">en el centro de tu hogar</span></section>
+
+<section class="section">
+  <p class="eyebrow center">Los más vendidos</p>
+  {% with products=best %}{% include "_grid.html" %}{% endwith %}
+  <p class="center"><a class="btn-outline" href="/coleccion/todos">Ver todos ➔</a></p>
+</section>
+
+<section class="split">
+  <div class="split-text">
+    <h2>Arte que se cuelga para toda la vida</h2>
+    <p class="eyebrow">Inspirado en la Biblia</p>
+    <ul class="ticks">
+      <li>✦ Diseños originales, cada uno con su versículo</li>
+      <li>✦ Lienzo de algodón con tintas de archivo que no amarillean</li>
+      <li>✦ Marco de madera hecho a mano, listo para colgar</li>
+      <li>✦ Envío gratis y asegurado; devolución en 30 días</li>
+    </ul>
+  </div>
+  <div class="split-img">{% if best and best[0].img2 %}<img src="{{ best[0].img2 }}" alt="Detalle de cuadro religioso" loading="lazy">{% endif %}</div>
+</section>
+
+<section class="section reviews-block">
+  {% if reviews %}
+    <h2 class="center serif">Lo que dicen las familias</h2>
+    <div class="rev-carousel">
+      {% for r in reviews %}<figure class="rev"><span class="quote">“</span><blockquote>{{ r.body }}</blockquote><p class="stars">★★★★★</p><figcaption>{{ r.name }}</figcaption></figure>{% endfor %}
+    </div>
+  {% else %}
+    <h2 class="center serif">Hecho para durar generaciones</h2>
+    <div class="promises">
+      <div><p class="p-big">30 días</p><p>para devolverlo si no te enamora</p></div>
+      <div><p class="p-big">Gratis</p><p>envío asegurado a toda España</p></div>
+      <div><p class="p-big">100 %</p><p>reposición sin coste si llega dañado</p></div>
+    </div>
+  {% endif %}
+</section>
+
+<section class="find">
+  <p class="find-q">¿No sabes por dónde empezar?</p>
+  <a class="btn-outline" href="/encuentra-tu-cuadro">Encuentra tu cuadro →</a>
+  <p class="eyebrow">Tarda 1 minuto</p>
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin · {{ brand }}</title>
+<link rel="stylesheet" href="/static/fe.css"><style>body{background:#f7f6f3}.adm{max-width:900px;margin:30px auto;padding:0 16px;font-family:Inter,sans-serif}.adm h2{font-family:'Cormorant Garamond',serif;font-size:1.6rem;margin:28px 0 6px}.adm .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}.adm button{padding:9px 14px;border:1px solid #1d1b19;background:#1d1b19;color:#fff;cursor:pointer;border-radius:3px}.adm button.g{background:#fff;color:#1d1b19}.adm pre{background:#fff;border:1px solid #ddd;padding:10px;max-height:300px;overflow:auto;font-size:.8rem;white-space:pre-wrap}.adm .hint{color:#6b655e;font-size:.9rem}.prev img{max-width:280px;margin:6px;border:1px solid #ddd}</style></head>
+<body><div class="adm">
+<h1>{{ brand }} · admin</h1>
+<p id="st">Cargando…</p>
+
+<h2>1. Catálogo</h2>
+<p class="hint">Carga los productos (temas de la referencia + línea católica) en Supabase. Se puede repetir: actualiza títulos y textos base sin borrar imágenes.</p>
+<div class="row"><button onclick="call('/admin/seed')">Cargar catálogo</button></div>
+
+<h2>2. Plantillas de estancia (IA, una vez)</h2>
+<p class="hint">Fotos de salón, recibidor, comedor, dormitorio y sofá para las tallas (~0,25 € cada una). Repite la que no te guste.</p>
+<div class="row">{% for r in rooms %}<button class="g" onclick="room('{{ r }}')">{{ r }}</button>{% endfor %}<button onclick="allRooms()">Generar todas</button></div>
+<div class="prev" id="roomPrev"></div>
+
+<h2>3. Diseños y fotos de producto</h2>
+<p class="hint">Genera el diseño con IA (~0,25 €) y monta todas las fotos (pared, marcos, tallas, estancias, detalle). De 2 en 2.</p>
+<div class="row"><button onclick="art(2)">Generar 2</button><button class="g" onclick="artAll()">Generar todos los que falten</button>
+<input id="slug" placeholder="slug para rehacer uno"><button class="g" onclick="artOne()">Rehacer este</button>
+<button class="g" onclick="remock()">Rehacer solo fotos (gratis)</button></div>
+<div class="prev" id="artPrev"></div>
+
+<h2>4. Textos de ficha</h2>
+<p class="hint">Descripción, detalles, "Sobre la obra" y preguntas frecuentes de cada cuadro (~0,01 € cada uno).</p>
+<div class="row"><button onclick="contentAll()">Generar textos que falten</button></div>
+
+<h2>5. Gelato</h2>
+<p class="hint">Explora el catálogo de Gelato con la clave del servidor y guarda los UIDs.</p>
+<div class="row"><button class="g" onclick="gel('https://product.gelatoapis.com/v3/catalogs')">Ver catálogos</button>
+<input id="gcat" placeholder="catalogUid"><button class="g" onclick="gel('https://product.gelatoapis.com/v3/catalogs/'+document.getElementById('gcat').value)">Ver atributos</button></div>
+
+<h2>6. Pedidos</h2>
+<div class="row"><button class="g" onclick="orders()">Ver pedidos</button></div>
+<pre id="out"></pre>
+</div>
+<script>
+const T = {{ token|tojson }};
+const out = s => document.getElementById('out').textContent = (typeof s==='string'?s:JSON.stringify(s,null,1)) + '\n\n' + document.getElementById('out').textContent;
+async function call(u, m='POST', body){ const r = await fetch(u+(u.includes('?')?'&':'?')+'token='+T, {method:m, headers:{'Content-Type':'application/json'}, body: body?JSON.stringify(body):undefined}); const d = await r.json().catch(()=>({error:r.status})); out(d); status(); return d; }
+async function status(){ const s = await (await fetch('/admin/status?token='+T)).json(); document.getElementById('st').textContent = `Supabase ${s.supabase?'OK':'NO'} · OpenAI ${s.openai?'OK':'NO'} · Stripe ${s.stripe?'OK':'NO'} · Gelato ${s.gelato?'OK':'NO'} · ${s.products} productos · ${s.with_art} con diseño · ${s.with_content} con textos · estancias: ${s.rooms.join(', ')||'ninguna'} · UIDs Gelato: ${s.gelato_uids}`; }
+async function room(k){ out('generando '+k+'…'); const d = await call('/admin/room?key='+k); if(d.preview) document.getElementById('roomPrev').insertAdjacentHTML('afterbegin', `<img src="${d.preview}" title="${k}">`); }
+async function allRooms(){ for (const k of {{ rooms|tojson }}) await room(k); }
+function showArt(d){ (d.done||[]).forEach(x => { if(x.main) document.getElementById('artPrev').insertAdjacentHTML('afterbegin', `<a href="/cuadro/${x.slug}" target="_blank"><img src="${x.main}" title="${x.slug}"></a>`); }); }
+async function art(n){ out('generando…'); const d = await call('/admin/art?limit='+n); showArt(d); return d; }
+async function artAll(){ while(true){ const d = await art(2); if(!d.done || !d.done.length || d.left===0) break; } }
+async function artOne(){ const s = document.getElementById('slug').value.trim(); if(!s) return; out('rehaciendo '+s+'…'); showArt(await call('/admin/art?limit=1&slug='+encodeURIComponent(s))); }
+async function remock(){ let off=0; while(true){ const d = await call('/admin/remock?limit=8&offset='+off); if(!d.done || !d.done.length) break; off += 8; } }
+async function contentAll(){ while(true){ const d = await call('/admin/content?limit=8'); if(!d.done || !d.done.length || d.left===0) break; } }
+async function gel(u){ out(await (await fetch('/admin/gelato?token='+T+'&url='+encodeURIComponent(u))).json()); }
+async function orders(){ out(await (await fetch('/admin/orders?token='+T)).json()); }
+status();
+</script></body></html>

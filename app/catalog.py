@@ -188,6 +188,38 @@ async def import_from_polish(start: int = 0, limit: int = 50, concurrency: int =
     return {"requested": len(batch), "skipped_existing": len(batch) - len(todo), "imported": len(results), "errors": errors}
 
 
+DEDUPE_PROMPT = """Eres responsable de catálogo de una tienda española de caricaturas personalizadas. Estos productos comparten el MISMO título aunque la escena de cada uno es distinta. Reescribe cada uno para que el título sea único y describa su escena (p. ej. "Caricatura personalizada para mujer: regalo de 40 cumpleaños con tarta y champán", "...: 40 cumpleaños en descapotable rosa"). Si son fans del mismo club de fútbol, reparte los clubes entre ellos (Real Madrid, FC Barcelona, Atlético de Madrid, Athletic Club, Real Betis, Sevilla FC, Valencia CF, Real Sociedad; sin escudos ni logotipos) y adapta los colores de la ropa en scene_prompt, short_desc, tags y description_html (blanco → azulgrana / rojiblanco / verdiblanco, etc.).
+Devuelve SOLO JSON: {"items":[{"slug": "...", "title": "...", "short_desc": "...", "tags": [...], "scene_prompt": "...", "description_html": "..."}]} manteniendo el slug de cada producto y la misma longitud/estilo de description_html (puedes copiarla ajustando solo lo que cambie).
+Productos:
+"""
+
+
+async def dedupe_titles() -> dict:
+    rows = await _get("car_products", {"select": "slug,title,short_desc,tags,scene_prompt,description_html", "limit": "5000"})
+    groups: dict[str, list] = {}
+    for r in rows:
+        groups.setdefault(r["title"].strip().lower(), []).append(r)
+    dups = [g for g in groups.values() if len(g) > 1]
+    updated, errors = 0, []
+    for g in dups:
+        try:
+            d = await _openai_json(DEDUPE_PROMPT + json.dumps(g, ensure_ascii=False))
+            items = d.get("items", [])
+            valid = {r["slug"] for r in g}
+            out = []
+            for it in items:
+                if it.get("slug") in valid and it.get("title"):
+                    out.append({"slug": it["slug"], "title": it["title"][:120], "short_desc": (it.get("short_desc") or "")[:220], "tags": [t for t in it.get("tags", []) if isinstance(t, str)][:8], "scene_prompt": (it.get("scene_prompt") or "")[:900], "description_html": it.get("description_html") or "", "updated_at": "now()"})
+            # no dejar vacíos
+            out = [o for o in out if o["scene_prompt"] and o["description_html"]]
+            await _upsert("car_products", out)
+            updated += len(out)
+        except Exception as e:  # noqa: BLE001
+            errors.append(str(e)[:200])
+    _cache["t"] = 0
+    return {"groups": len(dups), "updated": updated, "errors": errors}
+
+
 async def ensure_collections():
     rows = [{"slug": s, "title": t, "h1": h, "intro": i, "sort": n} for n, (s, t, h, i) in enumerate(DEFAULT_COLLECTIONS)]
     await _upsert("car_collections", rows)

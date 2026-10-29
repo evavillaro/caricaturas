@@ -10,6 +10,10 @@
   <p class="hint">Cada lote adapta 50 productos con OpenAI (≈ 0,01 € cada uno) y los guarda en Supabase. Pulsa hasta que "imported" sea 0.</p>
   <div class="row"><label>Desde <input id="start" type="number" value="0" style="width:90px"></label><label>Lote <input id="limit" type="number" value="50" style="width:70px"></label><button class="btn btn-primary" id="imp">Importar lote</button><button class="btn btn-ghost" id="impall">Importar todo (436)</button></div>
   <pre id="out1"></pre>
+  <h3>1b. Diferenciar títulos repetidos</h3>
+  <p class="hint">Da título propio a los productos que comparten título y reparte los clubes de fútbol. Tarda 2-3 minutos.</p>
+  <div class="row"><button class="btn btn-primary" id="dedupe">Diferenciar títulos</button><span id="dedst"></span></div>
+  <pre id="out3"></pre>
   <h3>2. Generar imágenes de catálogo</h3>
   <p class="hint">Genera la caricatura de muestra de cada producto (≈ 0,10-0,20 € cada una) más mockups de pared, ladrillo y póster, y las sube a Supabase. De 10 en 10.</p>
   <div class="row"><button class="btn btn-primary" id="gen">Generar 10</button><button class="btn btn-ghost" id="genall">Generar todas las que falten</button><span id="genst"></span></div>
@@ -24,6 +28,7 @@ $('#imp').onclick = () => imp(+$('#start').value, +$('#limit').value);
 $('#impall').onclick = async () => { for (let s=0; s<436; s+=50){ $('#start').value = s; const d = await imp(s, 50); if (d.detail) break; } };
 async function gen(){ $('#genst').textContent = 'generando…'; const r = await fetch(`/admin/generate-images?token=${token}&limit=10`, {method:'POST'}); const d = await r.json(); $('#out2').textContent = JSON.stringify(d,null,1) + '\n' + $('#out2').textContent; $('#genst').textContent=''; await status(); return d; }
 $('#gen').onclick = gen;
+$('#dedupe').onclick = async () => { $('#dedst').textContent='trabajando…'; const r = await fetch('/admin/dedupe-titles?token='+token,{method:'POST'}); $('#out3').textContent = JSON.stringify(await r.json(),null,1); $('#dedst').textContent=''; };
 $('#genall').onclick = async () => { while(true){ const d = await gen(); if(!d.generated || !d.generated.length) break; } };
 status();
 </script></body></html>

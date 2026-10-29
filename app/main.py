@@ -180,6 +180,12 @@ async def admin_generate_images(token: str = "", limit: int = 10):
     return {"generated": done, "errors": errors, "remaining_hint": "repite la llamada hasta que generated venga vacío"}
 
 
+@app.post("/admin/dedupe-titles")
+async def admin_dedupe(token: str = ""):
+    _admin(token)
+    return await catalog.dedupe_titles()
+
+
 @app.get("/admin/models")
 async def admin_models(token: str = ""):
     """Lista los modelos de OpenAI disponibles para esta clave y prueba el de texto configurado."""

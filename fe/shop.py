@@ -70,7 +70,7 @@ async def create_checkout(raw_items: list[dict], email: str | None = None, disco
         metadata={"order_id": order_id, "store": "fe"},
         client_reference_id=order_id,
         locale="es",
-        shipping_address_collection={"allowed_countries": ["ES", "PT", "FR", "IT", "DE", "BE", "NL", "AT", "IE", "MX", "US", "CO", "AR", "CL", "PE"]},
+        shipping_address_collection={"allowed_countries": ["ES", "PT", "FR", "IT", "DE", "BE", "NL", "AT", "IE", "US"]},  # Latinoamérica: Gelato no produce allí (envío 41 € y 3-4 semanas)
         phone_number_collection={"enabled": True},
     )
     if email:

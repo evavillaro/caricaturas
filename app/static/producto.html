@@ -30,6 +30,7 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
   <div class="product-media">
     <div class="delivery-banner">Haz tu pedido hoy y recíbelo antes del <b id="delivery-date"></b>.<br><small>* si apruebas el diseño hoy</small></div>
     <div class="product-img"><img id="main-img" src="/api/example/{{SCENE_ID}}.jpg" alt="{{SCENE_NAME}}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'placeholder',textContent:'{{SCENE_NAME}}'}))"></div>
+    <div class="thumbs" id="thumbs"></div>
     <div class="ship-info"><div><b>Envío gratuito por mensajería</b><br>Entrega en 24-48 h tras la aprobación del diseño.</div><div><b>Diseño para tu aprobación</b><br>Lo ves antes de pagar; nada se imprime sin tu OK.</div></div>
   </div>
 
@@ -70,7 +71,6 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
     </div>
 
     <details class="acc" open><summary>Descripción</summary><div class="desc">{{SCENE_HTML}}</div></details>
-    <div class="thumbs" id="thumbs"></div>
     <details class="acc"><summary>¿Cuadro sobre lienzo o póster?</summary><p><b>Lienzo:</b> la opción decorativa, parece un cuadro pintado; lleva bastidor de madera, no necesita marco. <b>Póster:</b> alternativa más económica para enmarcar tú, en papel grueso de 200 g.</p></details>
     <details class="acc"><summary>Envíos y devoluciones</summary><p>Envío gratis en España, 24-48 h tras tu aprobación más 2-4 días de tránsito. Si no se parece, lo rehacemos una vez gratis; si llega dañado, lo reponemos.</p></details>
   </div>

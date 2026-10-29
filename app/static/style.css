@@ -201,3 +201,6 @@ footer .newsletter input{flex:1;background:#333;border:1px solid #555;color:#fff
 .rv-form input,.rv-form textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font:inherit}
 .rv-star{background:none;border:0;font-size:1.6rem;color:#ccc;cursor:pointer;padding:0 2px}.rv-star.on{color:#f5a623}
 .rv-thanks{background:#eef8ee;padding:12px;border-radius:8px}
+
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}
+.thumbs img{width:72px;height:80px}

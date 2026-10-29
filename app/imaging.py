@@ -32,7 +32,8 @@ def _to_png_bytes(img: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str = "", dedication: str = "", quality: str | None = None) -> Image.Image:
+async def generate(photo, extra_prompt: str = "", scene_prompt: str = "", dedication: str = "", quality: str | None = None) -> Image.Image:
+    """photo: una imagen o una lista de imágenes (pareja/grupo)."""
     if config.DEMO_MODE:
         return _demo_caricature(photo)
     prompt = config.STYLE_PROMPT
@@ -42,11 +43,13 @@ async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str
         prompt += f" Dedicatoria que el cliente ha pedido (NO la escribas en la imagen; solo úsala si da pistas como un número de edad o unos colores): '{dedication[:80]}'."
     if extra_prompt:
         prompt += " Detalles del cliente: " + extra_prompt[:300]
-    data_url = "data:image/png;base64," + base64.b64encode(_to_png_bytes(photo)).decode()
+    photos = photo if isinstance(photo, (list, tuple)) else [photo]
+    if len(photos) > 1:
+        prompt += f" En la foto/fotos aparecen {len(photos)} personas distintas: dibuja a TODAS juntas en la escena, cada una reconocible por su propia foto."
     body = {
         "model": config.OPENAI_IMAGE_MODEL,
         "prompt": prompt,
-        "images": [{"image_url": data_url}],
+        "images": [{"image_url": "data:image/png;base64," + base64.b64encode(_to_png_bytes(p)).decode()} for p in photos],
         "size": config.IMAGE_SIZE,
         "quality": quality or config.IMAGE_QUALITY,
         "n": 1,
@@ -135,7 +138,9 @@ def load_template():
     return _TPL_CACHE["v"]
 
 
-def compose_main(art: Image.Image, photo: Image.Image, label: str = "tu foto") -> Image.Image:
+def compose_main(art: Image.Image, photo, label: str = "tu foto") -> Image.Image:
+    photos = photo if isinstance(photo, (list, tuple)) else [photo]
+    label = label if len(photos) == 1 else "tus fotos"
     """Imagen principal como la tienda de referencia: pared gris clara con suelo, lienzo con
     perspectiva y canto, móvil con la foto abajo a la derecha, texto a mano y flecha curva
     del móvil al cuadro."""
@@ -171,16 +176,21 @@ def compose_main(art: Image.Image, photo: Image.Image, label: str = "tu foto") -
     strip_mask = Image.new("L", (edge, ch), 0); ImageDraw.Draw(strip_mask).polygon([(edge, 0), (edge, ch), (0, ch + int(edge * 0.4)), (0, int(edge * 0.4))], fill=255)
     bg.paste(strip, (x0 - edge, y0 - int(edge * 0.4)), strip_mask)
     bg.paste(warped, (x0, y0), mask)
-    # móvil
+    # móvil(es): uno por persona, en fila a la derecha
     d = ImageDraw.Draw(bg)
-    pw = int(W * 0.21); ph = int(pw * 2.05)
-    px, py = int(W * 0.76), int(H * 0.52)
-    d.rounded_rectangle([px - 4, py - 4, px + pw + 4, py + ph + 4], radius=int(pw * 0.16), fill=(30, 30, 30))
-    d.rounded_rectangle([px, py, px + pw, py + ph], radius=int(pw * 0.14), fill=(10, 10, 10))
-    inner = ImageOps.fit(photo, (pw - 14, ph - 14), method=Image.LANCZOS)
-    m2 = Image.new("L", inner.size, 0); ImageDraw.Draw(m2).rounded_rectangle([0, 0, inner.width - 1, inner.height - 1], radius=int(pw * 0.11), fill=255)
-    bg.paste(inner, (px + 7, py + 7), m2)
-    d.rounded_rectangle([px + pw * 0.36, py + 8, px + pw * 0.64, py + 16], radius=4, fill=(40, 40, 40))
+    n = len(photos)
+    pw = int(W * (0.21 if n == 1 else 0.14)); ph = int(pw * 2.05); gap = int(W * 0.02)
+    total = n * pw + (n - 1) * gap
+    px = W - total - int(W * 0.05); py = int(H * 0.52)
+    for i, ph_img in enumerate(photos):
+        xx = px + i * (pw + gap)
+        d.rounded_rectangle([xx - 4, py - 4, xx + pw + 4, py + ph + 4], radius=int(pw * 0.16), fill=(30, 30, 30))
+        d.rounded_rectangle([xx, py, xx + pw, py + ph], radius=int(pw * 0.14), fill=(10, 10, 10))
+        inner = ImageOps.fit(ph_img, (pw - 14, ph - 14), method=Image.LANCZOS)
+        m2 = Image.new("L", inner.size, 0); ImageDraw.Draw(m2).rounded_rectangle([0, 0, inner.width - 1, inner.height - 1], radius=int(pw * 0.11), fill=255)
+        bg.paste(inner, (xx + 7, py + 7), m2)
+        d.rounded_rectangle([xx + pw * 0.36, py + 8, xx + pw * 0.64, py + 16], radius=4, fill=(40, 40, 40))
+    pw = total  # para centrar el texto sobre el conjunto
     # texto a mano, dos líneas si hace falta, centrado sobre el móvil
     font = _hand_font(int(W * 0.075))
     lines = label.split(" ") if len(label) > 8 else [label]

@@ -184,16 +184,22 @@ async def admin_generate_images(token: str = "", limit: int = 10, before_after: 
                 async with _sem:
                     if before_after:
                         faces = await catalog.list_faces()
-                        face = catalog.pick_face(faces, r.get("group") or "el", r.get("title") or "", r["slug"])
-                        photo = await catalog.face_image(face) if face else await imaging.generate_photo(prompt)
+                        if (r.get("group") or "el") == "pareja":
+                            f1 = catalog.pick_face(faces, "ella", r.get("title") or "", r["slug"])
+                            f2 = catalog.pick_face(faces, "el", r.get("title") or "", r["slug"] + "x")
+                            photo = [await catalog.face_image(f1), await catalog.face_image(f2)] if f1 and f2 else await imaging.generate_photo(prompt)
+                        else:
+                            face = catalog.pick_face(faces, r.get("group") or "el", r.get("title") or "", r["slug"])
+                            photo = await catalog.face_image(face) if face else await imaging.generate_photo(prompt)
                         art = await imaging.generate(photo, "", prompt, "", quality=config.env("CATALOG_IMAGE_QUALITY", "medium"))
                     else:
                         photo = None
                         art = await imaging.generate_from_text(prompt)
                 mocks = imaging.make_mockups(art, photo)
                 if photo is not None:
-                    pj = photo.copy(); pj.thumbnail((600, 600))
-                    mocks["photo"] = imaging._jpeg(pj, 85)
+                    for i, pimg in enumerate(photo if isinstance(photo, list) else [photo]):
+                        pj = pimg.copy(); pj.thumbnail((600, 600))
+                        mocks["photo" if i == 0 else f"photo{i+1}"] = imaging._jpeg(pj, 85)
                 urls = {}
                 for k, data in mocks.items():
                     urls[k] = await catalog.upload_image(f"{r['slug']}/{k}.jpg", data)

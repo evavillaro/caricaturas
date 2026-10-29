@@ -31,6 +31,11 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title=config.BRAND_NAME)
 STATIC = Path(__file__).parent / "static"
 EXAMPLES = config.DATA_DIR / "examples"
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return RedirectResponse("/static/favicon.ico", 301)
+
+
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024

@@ -30,7 +30,7 @@
         <li><b>Sacar y colgar.</b> {% if p.kind == 'lienzo' %}Marco flotante de madera con colgador puesto; sin marco, va tensado en bastidor.{% else %}Papel de archivo con paspartú, metacrilato y marco de madera.{% endif %}</li>
         <li><b>Hecho bajo pedido en Europa</b> con tintas pigmentadas que aguantan décadas sin amarillear.</li>
         <li><b>En casa en 5-8 días laborables:</b> se produce bajo pedido y se envía asegurado.</li>
-        <li><b>Sin riesgo:</b> envío gratis y asegurado, y 30 días para devolverlo.</li>
+        <li><b>Envío gratis y asegurado</b>, con embalaje protector.</li>
       </ul>
     </div>
 
@@ -49,7 +49,7 @@
       <li>Envío gratis a toda España; también enviamos al resto de Europa y a Estados Unidos</li>
       <li>Producción bajo pedido y entrega en 5-8 días laborables en España</li>
       <li>Embalaje protector con esquinas reforzadas</li><li>100 % asegurado durante el transporte</li>
-      <li>Devoluciones y cambios hasta 30 días después de la entrega</li>
+      <li>Derecho de desistimiento de 14 días según la ley (ver <a href="/p/devoluciones">devoluciones</a>)</li>
       <li>Si llega con algún daño, escríbenos a {{ email }} y lo reponemos sin coste</li></ul></div></details>
     {% if c.about %}<details class="acc"><summary>{{ c.about_title }}</summary><div>{% for para in c.about.split('\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div></details>{% endif %}
     {% if c.faq %}<details class="acc"><summary>Preguntas sobre {{ p.title }}</summary><div>{% for f in c.faq %}<p class="faq-q">{{ f.q }}</p><p>{{ f.a }}</p>{% endfor %}</div></details>{% endif %}

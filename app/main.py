@@ -180,6 +180,18 @@ async def admin_generate_images(token: str = "", limit: int = 10):
     return {"generated": done, "errors": errors, "remaining_hint": "repite la llamada hasta que generated venga vacío"}
 
 
+@app.get("/admin/models")
+async def admin_models(token: str = ""):
+    """Lista los modelos de OpenAI disponibles para esta clave y prueba el de texto configurado."""
+    _admin(token)
+    import httpx as _hx
+    async with _hx.AsyncClient(timeout=60) as c:
+        r = await c.get("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}"})
+        models = sorted(m["id"] for m in r.json().get("data", [])) if r.status_code == 200 else [f"error {r.status_code}: {r.text[:200]}"]
+        t = await c.post("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}"}, json={"model": catalog.OPENAI_TEXT_MODEL, "messages": [{"role": "user", "content": "Responde solo: ok"}]})
+    return {"text_model": catalog.OPENAI_TEXT_MODEL, "test_status": t.status_code, "test_body": t.text[:400], "models": [m for m in models if "gpt" in m or "o" in m[:2]]}
+
+
 @app.get("/admin/catalog-status")
 async def admin_catalog_status(token: str = ""):
     _admin(token)

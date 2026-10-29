@@ -141,7 +141,7 @@ Producto polaco:
 
 
 async def _openai_json(prompt: str) -> dict:
-    body = {"model": OPENAI_TEXT_MODEL, "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}, "temperature": 0.6}
+    body = {"model": OPENAI_TEXT_MODEL, "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}}
     async with httpx.AsyncClient(timeout=120) as c:
         r = await c.post("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}"}, json=body)
     if r.status_code != 200:

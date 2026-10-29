@@ -6,6 +6,19 @@
 <title>{{PAGE_TITLE}}</title>
 <meta name="description" content="{{SCENE_DESC}} Caricatura personalizada a partir de tu foto, en lienzo, póster o archivo. Ves el diseño antes de pagar. Envío gratis.">
 <link rel="stylesheet" href="/static/style.css">
+<!-- analítica (se activa solo si hay IDs en Render) -->
+<script>
+window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABEL}}", meta: "{{META_PIXEL_ID}}", clarity: "{{CLARITY_ID}}", pinterest: "{{PINTEREST_TAG_ID}}"};
+(function(){ const I = window.__IDS;
+  if (I.ga4 || I.gads) { const s=document.createElement('script'); s.async=true; s.src='https://www.googletagmanager.com/gtag/js?id='+(I.ga4||I.gads); document.head.appendChild(s);
+    window.dataLayer=window.dataLayer||[]; window.gtag=function(){dataLayer.push(arguments)}; gtag('js', new Date()); if(I.ga4) gtag('config', I.ga4); if(I.gads) gtag('config', I.gads); }
+  if (I.meta) { !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init', I.meta); fbq('track', 'PageView'); }
+  if (I.clarity) { (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, "clarity", "script", I.clarity); }
+  if (I.pinterest) { !function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js"); pintrk('load', I.pinterest); pintrk('page'); }
+  window.track = function(ev, data){ data = data||{}; try{ if(window.gtag){ gtag('event', ev, data); if(ev==='purchase' && I.gads && I.gads_label) gtag('event','conversion',{send_to: I.gads+'/'+I.gads_label, value: data.value, currency: 'EUR', transaction_id: data.transaction_id}); } if(window.fbq){ const map={view_item:'ViewContent', generate:'Lead', begin_checkout:'InitiateCheckout', purchase:'Purchase'}; fbq('track', map[ev]||ev, {value:data.value, currency:'EUR', content_name:data.item}); } if(window.pintrk && ev==='purchase') pintrk('track','checkout',{value:data.value,currency:'EUR'}); }catch(e){} };
+})();
+</script>
+
 </head>
 <body>
 <div class="promo">-{{DISCOUNT}} % de lanzamiento · Envío gratis por mensajería · Ves el diseño antes de pagar <span class="phone">{{PHONE}}</span></div>
@@ -94,7 +107,7 @@ function renderSizes(){
   setProduct(list[0].id);
 }
 function setProduct(id){ product = D.products.find(p => p.id === id); $('#price-now').textContent = eur(product.cents); $('#pay-price').textContent = eur(product.cents); }
-load();
+load(); if(window.track) track('view_item',{item:SCENE_NAME});
 
 const photo = $('#photo'), thumb = $('#thumb'), drop = $('#drop'), form = $('#form'), loading = $('#loading'), errorBox = $('#error');
 function showError(m){ errorBox.textContent = m; errorBox.hidden = false; }
@@ -109,7 +122,7 @@ form.addEventListener('submit', async e => {
   try {
     const r = await fetch('/api/generate', { method:'POST', body: new FormData(form) });
     const data = await r.json(); if(!r.ok) throw new Error(data.detail || 'Error al generar');
-    tries++; jobId = data.job_id; $('#left').textContent = 3 - tries;
+    tries++; jobId = data.job_id; if(window.track) track('generate',{item:SCENE_NAME}); $('#left').textContent = 3 - tries;
     $('#preview').src = data.preview_url + '?t=' + Date.now(); $('#preview-box').hidden = false; $('#main-img').src = $('#preview').src;
     $('#preview-box').scrollIntoView({behavior:'smooth', block:'center'});
   } catch(err) { showError(err.message); form.hidden = false; }
@@ -117,7 +130,7 @@ form.addEventListener('submit', async e => {
 });
 $('#retry').addEventListener('click', () => { $('#preview-box').hidden = true; form.hidden = false; photo.value=''; thumb.hidden = true; drop.classList.remove('has'); });
 $('#pay').addEventListener('click', async () => {
-  $('#pay').disabled = true;
+  $('#pay').disabled = true; if(window.track) track('begin_checkout',{item:SCENE_NAME, value: product.cents/100});
   try {
     const r = await fetch('/api/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ job_id: jobId, product: product.id }) });
     const data = await r.json(); if(!r.ok) throw new Error(data.detail || 'Error al iniciar el pago');

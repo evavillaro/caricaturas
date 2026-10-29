@@ -68,6 +68,7 @@ def _page(name: str, **extra: str) -> HTMLResponse:
         "WHATSAPP": config.WHATSAPP,
         "CATEGORY": "",
         "SCENE_ID": "", "SCENE_NAME": "", "SCENE_DESC": "", "SCENE_HTML": "",
+        "GA4_ID": config.env("GA4_ID"), "GADS_ID": config.env("GADS_ID"), "GADS_LABEL": config.env("GADS_LABEL"), "META_PIXEL_ID": config.env("META_PIXEL_ID"), "CLARITY_ID": config.env("CLARITY_ID"), "PINTEREST_TAG_ID": config.env("PINTEREST_TAG_ID"),
         "PAGE_TITLE": f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo",
         "H1": "Caricatura personalizada a partir de una foto",
         "INTRO": "Tu idea. Tu foto. Un regalo personal. Elige la escena, sube la foto y mira tu caricatura antes de pagar.",
@@ -407,7 +408,10 @@ async def api_status(job_id: str):
     meta = storage.read_meta(job_id)
     if not meta:
         raise HTTPException(404)
-    return {k: meta.get(k) for k in ("status", "paid", "product", "gelato_order", "gelato_status")}
+    out = {k: meta.get(k) for k in ("status", "paid", "product", "gelato_order", "gelato_status")}
+    prod = fulfilment.PRODUCTS.get(meta.get("product") or "")
+    out["amount"] = (prod["cents"] / 100) if prod else None
+    return out
 
 
 @app.get("/admin/orders")

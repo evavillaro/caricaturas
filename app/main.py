@@ -365,6 +365,49 @@ async def admin_room_mockups(token: str = "", workers: int = 3, redo: bool = Fal
     return {"started": True, "pending": len(queue)}
 
 
+_main_bg = {"running": False, "done": 0, "errors": []}
+
+
+@app.post("/admin/remake-main")
+async def admin_remake_main(token: str = "", workers: int = 3):
+    """Rehace la foto principal (lienzo + móvil + "tu foto") de todos los productos, sin IA."""
+    _admin(token)
+    if _main_bg["running"]:
+        return {"already_running": True, "done": _main_bg["done"]}
+    rows = await catalog._get("car_products", {"select": "slug,group", "image_url": "not.is.null", "limit": "5000"})
+    queue = list(rows)
+    import httpx as _hx
+
+    async def one(r):
+        base = f"{catalog.SUPABASE_URL}/storage/v1/object/public/caricaturas/{r['slug']}"
+        try:
+            async with _hx.AsyncClient(timeout=60) as c:
+                art = Image.open(io.BytesIO((await c.get(f"{base}/art.jpg")).content)).convert("RGB")
+                photos = [Image.open(io.BytesIO((await c.get(f"{base}/photo.jpg")).content)).convert("RGB")]
+                r2 = await c.get(f"{base}/photo2.jpg")
+                if r2.status_code == 200 and r2.headers.get("content-type", "").startswith("image"):
+                    photos.append(Image.open(io.BytesIO(r2.content)).convert("RGB"))
+            img = await asyncio.to_thread(imaging.compose_main, art, photos if len(photos) > 1 else photos[0])
+            await catalog.upload_image(f"{r['slug']}/main.jpg", imaging._jpeg(img, 86))
+            _main_bg["done"] += 1
+        except Exception as e:  # noqa: BLE001
+            _main_bg["errors"].append({"slug": r["slug"], "error": str(e)[:200]})
+
+    async def worker():
+        while queue:
+            await one(queue.pop(0))
+
+    async def run():
+        _main_bg.update(running=True, done=0, errors=[])
+        try:
+            await asyncio.gather(*[worker() for _ in range(max(1, min(workers, 4)))])
+        finally:
+            _main_bg["running"] = False
+
+    asyncio.create_task(run())
+    return {"started": True, "pending": len(queue)}
+
+
 @app.get("/admin/catalog-status")
 async def admin_catalog_status(token: str = ""):
     _admin(token)
@@ -372,7 +415,7 @@ async def admin_catalog_status(token: str = ""):
         return {"supabase": False}
     total = await catalog._get("car_products", {"select": "slug", "limit": "5000"})
     with_img = await catalog._get("car_products", {"select": "slug", "image_url": "not.is.null", "limit": "5000"})
-    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436, "bg_running": _bg["running"], "bg_errors": _bg["errors"][-5:], "rooms_running": _rooms_bg["running"], "rooms_done": _rooms_bg["done"], "rooms_errors": _rooms_bg["errors"][-3:]}
+    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436, "bg_running": _bg["running"], "bg_errors": _bg["errors"][-5:], "rooms_running": _rooms_bg["running"], "rooms_done": _rooms_bg["done"], "rooms_errors": _rooms_bg["errors"][-3:], "main_running": _main_bg["running"], "main_done": _main_bg["done"], "main_errors": _main_bg["errors"][-3:]}
 
 
 @app.get("/admin/catalogo", response_class=HTMLResponse)

@@ -172,9 +172,13 @@ def compose_main(art: Image.Image, photo, label: str = "tu foto") -> Image.Image
     shadow = shadow.filter(ImageFilter.GaussianBlur(30))
     bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
     # canto izquierdo: la imagen continúa envuelta (franja espejada) y más oscura
-    strip = ImageOps.mirror(piece.crop((0, 0, edge * 2, ch))).resize((edge, ch)).point(lambda v: int(v * 0.5))
-    strip_mask = Image.new("L", (edge, ch), 0); ImageDraw.Draw(strip_mask).polygon([(edge, 0), (edge, ch), (0, ch + int(edge * 0.4)), (0, int(edge * 0.4))], fill=255)
-    bg.paste(strip, (x0 - edge, y0 - int(edge * 0.4)), strip_mask)
+    # el canto (más lejos del ojo) es un trapecio que se estrecha hacia fuera, unido a la cara frontal
+    d_ = int(edge * 0.35)
+    strip = ImageOps.mirror(piece.crop((0, 0, edge * 2, ch))).resize((edge, ch)).point(lambda v: int(v * 0.62))
+    sdst = [(0, d_), (edge, 0), (edge, ch), (0, ch - d_)]
+    strip = strip.transform((edge, ch), Image.PERSPECTIVE, _persp_coeffs(sdst, [(0, 0), (edge, 0), (edge, ch), (0, ch)]), Image.BICUBIC)
+    strip_mask = Image.new("L", (edge, ch), 0); ImageDraw.Draw(strip_mask).polygon(sdst, fill=255)
+    bg.paste(strip, (x0 - edge, y0), strip_mask)
     bg.paste(warped, (x0, y0), mask)
     # móvil(es): uno por persona, en fila a la derecha
     d = ImageDraw.Draw(bg)

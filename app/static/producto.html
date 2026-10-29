@@ -55,7 +55,8 @@
       <p class="pay-icons">Visa · Mastercard · Google Pay · Apple Pay</p>
     </div>
 
-    <details class="acc"><summary>Descripción</summary><p>Caricatura personalizada creada a partir de tu foto: exageramos con humor los rasgos manteniendo el parecido, y añadimos la escena "{{SCENE_NAME}}". Perfecta para cumpleaños, aniversarios o para decorar el despacho o el garaje.</p></details>
+    <details class="acc" open><summary>Descripción</summary><div class="desc">{{SCENE_HTML}}</div></details>
+    <div class="thumbs" id="thumbs"></div>
     <details class="acc"><summary>¿Cuadro sobre lienzo o póster?</summary><p><b>Lienzo:</b> la opción decorativa, parece un cuadro pintado; lleva bastidor de madera, no necesita marco. <b>Póster:</b> alternativa más económica para enmarcar tú, en papel grueso de 200 g.</p></details>
     <details class="acc"><summary>Envíos y devoluciones</summary><p>Envío gratis en España, 24-48 h tras tu aprobación más 2-4 días de tránsito. Si no se parece, lo rehacemos una vez gratis; si llega dañado, lo reponemos.</p></details>
   </div>
@@ -83,7 +84,7 @@ async function load(){
   $('#types').innerHTML = ['digital','canvas','poster'].map(t => `<label class="type ${t===type?'on':''}" data-t="${t}"><b>${TYPE_LABEL[t]}</b><small>desde ${eur(minOf(t))}</small></label>`).join('');
   $('#types').addEventListener('click', e => { const l = e.target.closest('.type'); if(!l) return; type = l.dataset.t; document.querySelectorAll('.type').forEach(x=>x.classList.toggle('on', x===l)); renderSizes(); });
   const base = minOf('canvas'); $('#price-from').textContent = eur(base); $('#price-before').textContent = eur(Math.round(base/(1-D.discount/100)));
-  renderSizes();
+  renderSizes(); const me = D.scenes.find(x=>x.id===SCENE); if (me && me.images && me.images.length) { $('#thumbs').innerHTML = me.images.map((u,i)=>`<img src="${u}" data-i="${i}" class="${i===0?'on':''}">`).join(''); $('#thumbs').querySelectorAll('img').forEach(im=>im.addEventListener('click',()=>{ $('#main-img').src = im.src; $('#thumbs').querySelectorAll('img').forEach(x=>x.classList.remove('on')); im.classList.add('on'); })); }
   if (D.whatsapp) { $('#wa-row').hidden = false; $('#wa-order').href = `https://wa.me/${D.whatsapp}?text=${encodeURIComponent('Hola, quiero pedir la caricatura "'+SCENE_NAME+'"')}`; $('#wa-ask').href = `https://wa.me/${D.whatsapp}?text=${encodeURIComponent('Hola, tengo una pregunta sobre "'+SCENE_NAME+'"')}`; }
 }
 function renderSizes(){

@@ -59,6 +59,82 @@ async def generate(photo: Image.Image, extra_prompt: str = "", scene_prompt: str
     return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
 
 
+async def generate_from_text(scene_prompt: str) -> Image.Image:
+    """Imagen de catálogo (sin foto de cliente): una persona genérica en la escena."""
+    prompt = (
+        "Ilustración de caricatura estilo cartoon moderno, cabeza grande y cuerpo pequeño, "
+        "trazo limpio, colores vivos, sombreado suave, composición vertical centrada para "
+        "imprimir en lienzo. Persona genérica sonriente. Sin texto, sin marcas de agua, sin "
+        "logotipos reales. Escena: " + scene_prompt
+    )
+    if config.DEMO_MODE:
+        img = Image.new("RGB", (1152, 1536), (240, 220, 200))
+        d = ImageDraw.Draw(img); d.text((40, 40), "DEMO", fill=(80, 80, 80), font=_font(60))
+        return img
+    body = {"model": config.OPENAI_IMAGE_MODEL, "prompt": prompt, "size": config.IMAGE_SIZE, "quality": config.env("CATALOG_IMAGE_QUALITY", "medium"), "n": 1}
+    async with httpx.AsyncClient(timeout=240) as client:
+        r = await client.post("https://api.openai.com/v1/images/generations", headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}"}, json=body)
+    if r.status_code != 200:
+        raise RuntimeError(f"OpenAI {r.status_code}: {r.text[:300]}")
+    b64 = r.json()["data"][0]["b64_json"]
+    return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+
+
+def _jpeg(img: Image.Image, q: int = 86) -> bytes:
+    buf = io.BytesIO(); img.save(buf, format="JPEG", quality=q); return buf.getvalue()
+
+
+def make_mockups(art: Image.Image) -> dict[str, bytes]:
+    """Mockups baratos sin IA: lienzo con canto sobre pared lisa, sobre pared de ladrillo
+    claro y versión póster con sombra. Devuelve JPEGs para web."""
+    art = art.copy(); art.thumbnail((900, 1200))
+    w, h = art.size
+    out = {}
+    out["main"] = _jpeg(art, 88)
+
+    def canvas_on_wall(bg: Image.Image, label: str):
+        W, H = bg.size
+        scale = min((W * 0.55) / w, (H * 0.72) / h)
+        cw, ch = int(w * scale), int(h * scale)
+        piece = art.resize((cw, ch), Image.LANCZOS)
+        x, y = (W - cw) // 2, int(H * 0.12)
+        shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(shadow)
+        sd.rectangle([x + 18, y + 24, x + cw + 18, y + ch + 24], fill=(0, 0, 0, 110))
+        shadow = shadow.filter(ImageFilter.GaussianBlur(22))
+        bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
+        edge = int(cw * 0.025)
+        side = piece.crop((cw - edge, 0, cw, ch)).resize((edge, ch)).point(lambda v: int(v * 0.6))
+        bg.paste(side, (x + cw, y + int(edge * 0.6)))
+        bg.paste(piece, (x, y))
+        out[label] = _jpeg(bg, 86)
+
+    wall = Image.new("RGB", (1200, 1200), (236, 231, 222))
+    d = ImageDraw.Draw(wall); d.rectangle([0, 1000, 1200, 1200], fill=(205, 190, 170))
+    canvas_on_wall(wall, "wall")
+
+    brick = Image.new("RGB", (1200, 1200), (226, 214, 200))
+    bd = ImageDraw.Draw(brick)
+    for row in range(0, 1200, 60):
+        off = 0 if (row // 60) % 2 == 0 else 60
+        for col in range(-60, 1260, 120):
+            bd.rectangle([col + off, row, col + off + 112, row + 52], fill=(234, 224, 212), outline=(214, 200, 184))
+    canvas_on_wall(brick, "brick")
+
+    poster_bg = Image.new("RGB", (1200, 1200), (245, 243, 240))
+    pw, ph = int(w * 0.8), int(h * 0.8)
+    piece = art.resize((pw, ph), Image.LANCZOS).rotate(-6, resample=Image.BICUBIC, expand=True, fillcolor=(245, 243, 240))
+    px, py = (1200 - piece.width) // 2, (1200 - piece.height) // 2
+    shadow = Image.new("RGBA", (1200, 1200), (0, 0, 0, 0)); sd = ImageDraw.Draw(shadow)
+    sd.rectangle([px + 14, py + 20, px + piece.width + 14, py + piece.height + 20], fill=(0, 0, 0, 90))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(18))
+    poster_bg = Image.alpha_composite(poster_bg.convert("RGBA"), shadow).convert("RGB")
+    mask = Image.new("L", piece.size, 255)
+    poster_bg.paste(piece, (px, py))
+    out["poster"] = _jpeg(poster_bg, 86)
+    return out
+
+
 def _demo_caricature(photo: Image.Image) -> Image.Image:
     """Efecto cartoon barato para probar el flujo sin gastar en la API."""
     w, h = 1024, 1536

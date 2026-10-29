@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
-from . import config, fulfilment, imaging, scenes, storage
+from . import catalog, config, fulfilment, imaging, scenes, storage
 
 log = logging.getLogger("caricaturas")
 logging.basicConfig(level=logging.INFO)
@@ -67,7 +67,7 @@ def _page(name: str, **extra: str) -> HTMLResponse:
         "DEMO": "true" if config.DEMO_MODE else "false",
         "WHATSAPP": config.WHATSAPP,
         "CATEGORY": "",
-        "SCENE_ID": "", "SCENE_NAME": "", "SCENE_DESC": "",
+        "SCENE_ID": "", "SCENE_NAME": "", "SCENE_DESC": "", "SCENE_HTML": "",
         "PAGE_TITLE": f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo",
         "H1": "Caricatura personalizada a partir de una foto",
         "INTRO": "Tu idea. Tu foto. Un regalo personal. Elige la escena, sube la foto y mira tu caricatura antes de pagar.",
@@ -84,42 +84,116 @@ async def home():
 
 
 @app.get("/regalos/{category}", response_class=HTMLResponse)
+@app.get("/coleccion/{category}", response_class=HTMLResponse)
 async def category_page(category: str):
-    cat = scenes.CATEGORIES.get(category)
+    _, cols = await catalog.get_catalog()
+    cat = next((c for c in cols if c["slug"] == category), None)
     if not cat:
         raise HTTPException(404)
-    return _page("index.html", CATEGORY=category, PAGE_TITLE=f"{cat['title']} · {config.BRAND_NAME}", H1=cat["title"], INTRO=cat["intro"])
+    return _page("index.html", CATEGORY=category, PAGE_TITLE=f"{cat['h1'] or cat['title']} · {config.BRAND_NAME}", H1=cat["h1"] or cat["title"], INTRO=cat.get("intro") or "")
 
 
-@app.get("/p/{scene_id}", response_class=HTMLResponse)
-async def product_page(scene_id: str):
-    s = scenes.SCENE_BY_ID.get(scene_id)
+@app.get("/p/{slug}", response_class=HTMLResponse)
+async def product_page(slug: str):
+    s = await catalog.get_product(slug)
     if not s:
         raise HTTPException(404)
-    return _page("producto.html", SCENE_ID=s["id"], SCENE_NAME=s["name"], SCENE_DESC=s["desc"], PAGE_TITLE=f"{s['name']} · {config.BRAND_NAME}")
+    return _page("producto.html", SCENE_ID=s["slug"], SCENE_NAME=s["title"], SCENE_DESC=s.get("short_desc") or "", SCENE_HTML=s.get("description_html") or "", PAGE_TITLE=f"{s['title']} · {config.BRAND_NAME}")
 
 
 @app.get("/api/scenes")
-async def api_scenes(category: str = ""):
+async def api_scenes(category: str = "", group: str = ""):
+    prods, cols = await catalog.get_catalog()
+    items = [p for p in prods if (not category or category in (p.get("collections") or []) or category == "todas" or (category == "bestsellers" and p.get("bestseller"))) and (not group or p.get("group") == group)]
     return {
         "groups": [{"slug": k, "name": v} for k, v in scenes.GROUPS],
-        "categories": [{"slug": k, **v} for k, v in scenes.CATEGORIES.items()],
-        "scenes": scenes.scenes_for(category or None),
+        "categories": [{"slug": c["slug"], "name": c["title"], "title": c.get("h1") or c["title"], "intro": c.get("intro") or ""} for c in cols if c["slug"] != "todas"],
+        "scenes": [{"id": p["slug"], "name": p["title"], "group": p.get("group") or "el", "categories": p.get("collections") or [], "desc": p.get("short_desc") or "", "image": p.get("image_url"), "images": p.get("images") or [], "bestseller": p.get("bestseller", False)} for p in items],
         "products": fulfilment.product_list(),
         "discount": config.DISCOUNT_PCT,
         "whatsapp": config.WHATSAPP,
+        "total": len(prods),
     }
 
 
 @app.get("/api/example/{scene_id}.jpg")
 async def api_example(scene_id: str):
-    """Imagen de ejemplo de una escena (si se ha generado desde /admin/ejemplos)."""
+    """Imagen de ejemplo de una escena: la del catálogo (Supabase) o la generada en /admin/ejemplos."""
+    s = await catalog.get_product(scene_id)
+    if s and s.get("image_url"):
+        return RedirectResponse(s["image_url"], status_code=302)
     p = EXAMPLES / f"{scene_id}.jpg"
     if not p.exists():
         p = STATIC / "examples" / f"{scene_id}.jpg"
     if not p.exists():
         raise HTTPException(404)
     return FileResponse(p, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    prods, cols = await catalog.get_catalog()
+    urls = [f"{config.BASE_URL}/"] + [f"{config.BASE_URL}/coleccion/{c['slug']}" for c in cols] + [f"{config.BASE_URL}/p/{p['slug']}" for p in prods]
+    body = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>"
+    return Response(body, media_type="application/xml")
+
+
+@app.get("/robots.txt")
+async def robots():
+    return Response(f"User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nSitemap: {config.BASE_URL}/sitemap.xml\n", media_type="text/plain")
+
+
+def _admin(token: str):
+    if not config.ADMIN_TOKEN or token != config.ADMIN_TOKEN:
+        raise HTTPException(403)
+
+
+@app.post("/admin/import")
+async def admin_import(token: str = "", start: int = 0, limit: int = 50):
+    """Adapta productos del catálogo polaco a España y los guarda en Supabase."""
+    _admin(token)
+    await catalog.ensure_collections()
+    return await catalog.import_from_polish(start, limit)
+
+
+@app.post("/admin/generate-images")
+async def admin_generate_images(token: str = "", limit: int = 10):
+    """Genera la imagen de catálogo (y mockups) de los productos que aún no la tienen."""
+    _admin(token)
+    if not catalog.ENABLED:
+        raise HTTPException(400, "Supabase no configurado")
+    rows = await catalog._get("car_products", {"select": "slug,scene_prompt,short_desc", "image_url": "is.null", "active": "eq.true", "order": "sort.asc", "limit": str(limit)})
+    done, errors = [], []
+    for r in rows:
+        try:
+            async with _sem:
+                art = await imaging.generate_from_text(r["scene_prompt"] or r["short_desc"])
+            mocks = imaging.make_mockups(art)
+            urls = {}
+            for k, data in mocks.items():
+                urls[k] = await catalog.upload_image(f"{r['slug']}/{k}.jpg", data)
+            await catalog._upsert("car_products", [{"slug": r["slug"], "image_url": urls["main"], "images": [urls["main"], urls["wall"], urls["brick"], urls["poster"]], "updated_at": "now()"}])
+            done.append(r["slug"])
+        except Exception as e:  # noqa: BLE001
+            errors.append({"slug": r["slug"], "error": str(e)[:200]})
+    catalog._cache["t"] = 0
+    return {"generated": done, "errors": errors, "remaining_hint": "repite la llamada hasta que generated venga vacío"}
+
+
+@app.get("/admin/catalog-status")
+async def admin_catalog_status(token: str = ""):
+    _admin(token)
+    if not catalog.ENABLED:
+        return {"supabase": False}
+    total = await catalog._get("car_products", {"select": "slug", "limit": "5000"})
+    with_img = await catalog._get("car_products", {"select": "slug", "image_url": "not.is.null", "limit": "5000"})
+    return {"supabase": True, "products": len(total), "with_image": len(with_img), "source_total": 436}
+
+
+@app.get("/admin/catalogo", response_class=HTMLResponse)
+async def admin_catalog_page(token: str = ""):
+    _admin(token)
+    return _page("admin-catalogo.html")
 
 
 @app.get("/admin/ejemplos", response_class=HTMLResponse)
@@ -188,7 +262,12 @@ async def api_config():
 
 @app.post("/api/generate")
 async def api_generate(photo: UploadFile = File(...), notes: str = Form(""), scene: str = Form("clasica"), dedication: str = Form("")):
-    scene_data = scenes.SCENE_BY_ID.get(scene) or scenes.SCENE_BY_ID["clasica"]
+    prod = await catalog.get_product(scene)
+    if prod:
+        scene_data = {"id": prod["slug"], "prompt": prod.get("scene_prompt") or prod.get("short_desc") or ""}
+    else:
+        s = scenes.SCENE_BY_ID.get(scene) or scenes.SCENE_BY_ID["clasica"]
+        scene_data = {"id": s["id"], "prompt": s["prompt"]}
     dedication = " ".join(dedication.split())[:60]
     storage.cleanup()
     data = await photo.read()

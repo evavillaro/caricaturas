@@ -41,7 +41,7 @@
 </section>
 
 <section id="catalogo" class="catalog">
-  <h2>Elige tu caricatura</h2>
+  <h2>Elige tu caricatura <small id="count"></small></h2>
   <div class="filters" id="filters"></div>
   <div id="groups"></div>
 </section>
@@ -144,19 +144,21 @@ async function load(){
   const f = $('#filters');
   f.innerHTML = `<button data-cat="" class="${CATEGORY?'':'on'}">Todos</button>` + D.categories.map(c => `<button data-cat="${c.slug}" class="${c.slug===CATEGORY?'on':''}">${c.name}</button>`).join('');
   f.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; f.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); render(b.dataset.cat); });
-  render(CATEGORY);
+  render(CATEGORY); $('#count').textContent = D.total ? `· ${D.total} diseños` : '';
 }
 function card(s){
   return `<a class="card" href="/p/${s.id}">
-    <div class="card-img"><span class="badge">-${D.discount}%</span><img src="/api/example/${s.id}.jpg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'card-title',textContent:'${s.name.replace(/'/g,"\\'")}'}))"><span class="tu-foto">tu foto ↗</span></div>
+    <div class="card-img"><span class="badge">-${D.discount}%</span>${s.image ? `<img src="${s.image}" alt="${s.name.replace(/"/g,'')}" loading="lazy">` : `<span class="card-title">${s.name}</span>`}<span class="tu-foto">tu foto ↗</span></div>
     <h3>${s.name}</h3><p>${s.desc}</p>
     <p class="card-price"><s>{{PRICE_BEFORE}}</s> <b>desde {{PRICE_FROM}}</b></p></a>`;
 }
 function render(cat){
   const list = D.scenes.filter(s => !cat || s.categories.includes(cat));
+  const MAX = cat ? 1000 : 12;
   $('#groups').innerHTML = D.groups.map(g => {
     const items = list.filter(s => s.group === g.slug); if(!items.length) return '';
-    return `<h3 class="group-title">${g.name}:</h3><div class="grid">${items.map(card).join('')}</div>`;
+    const shown = items.slice(0, MAX), rest = items.length - shown.length;
+    return `<h3 class="group-title">${g.name}: <small>${items.length} diseños</small></h3><div class="grid">${shown.map(card).join('')}</div>${rest>0 ? `<p class="more"><a class="btn btn-ghost" href="/coleccion/${g.slug==='ella'?'regalo-para-mujer':g.slug==='el'?'regalo-para-hombre':g.slug==='pareja'?'boda':'familia'}">Ver los ${items.length} diseños →</a></p>` : ''}`;
   }).join('');
 }
 load();

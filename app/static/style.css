@@ -173,3 +173,10 @@ footer .newsletter input{flex:1;background:#333;border:1px solid #555;color:#fff
 .acc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:10px}
 .acc summary{font-weight:700;cursor:pointer}
 @media (max-width:820px){.rating-box,.contact-grid,.feature-inner,.product-grid,.ship-info,.wa-row{grid-template-columns:1fr}.types{grid-template-columns:1fr}}
+
+.group-title small{color:var(--muted);font-weight:400;font-size:.9rem}
+.more{text-align:center;margin:10px 0 0}
+.thumbs{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid transparent;cursor:pointer}
+.thumbs img.on{border-color:#1a7a4a}
+.desc p{margin:0 0 10px}.desc ul{padding-left:20px;margin:0 0 8px}

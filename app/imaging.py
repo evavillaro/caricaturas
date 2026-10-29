@@ -124,28 +124,27 @@ def compose_main(art: Image.Image, photo: Image.Image, label: str = "tu foto") -
         for xx in range(0, W, 1):
             px_[xx, yy] = (v, v, v + 2)
     ImageDraw.Draw(bg).rectangle([0, int(H * 0.86), W, H], fill=(214, 214, 216))
-    # lienzo con perspectiva (lado derecho ligeramente más corto) y canto izquierdo visible
+    # lienzo con perspectiva: la cara frontal se estrecha hacia la derecha y se ve el canto
+    # izquierdo (imagen envuelta en el bastidor) y el canto superior, como un lienzo real.
     a = art.copy().convert("RGB"); a.thumbnail((900, 1200))
-    cw, ch = int(W * 0.60), int(W * 0.60 * 4 / 3)
+    cw, ch = int(W * 0.58), int(W * 0.58 * 4 / 3)
     piece = a.resize((cw, ch), Image.LANCZOS)
-    x0, y0 = int(W * 0.08), int(H * 0.06)
-    skew = int(ch * 0.025)
-    # mapa de perspectiva: esquinas destino (tl, tr, br, bl) → origen
+    x0, y0 = int(W * 0.10), int(H * 0.08)
+    skew = int(ch * 0.035)
+    edge = int(cw * 0.045)   # grosor del bastidor
     dst = [(0, 0), (cw, skew), (cw, ch - skew), (0, ch)]
     src = [(0, 0), (cw, 0), (cw, ch), (0, ch)]
-    coeffs = _persp_coeffs(dst, src)
-    warped = piece.transform((cw, ch), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
+    warped = piece.transform((cw, ch), Image.PERSPECTIVE, _persp_coeffs(dst, src), Image.BICUBIC)
     mask = Image.new("L", (cw, ch), 0); ImageDraw.Draw(mask).polygon(dst, fill=255)
-    # sombra
+    # sombra proyectada a la derecha y abajo
     shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0)); sd = ImageDraw.Draw(shadow)
-    sd.polygon([(x0 + 6, y0 + 10), (x0 + cw + 10, y0 + skew + 14), (x0 + cw + 10, y0 + ch - skew + 24), (x0 + 6, y0 + ch + 20)], fill=(0, 0, 0, 120))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(26))
+    sd.polygon([(x0 + 14, y0 + 18), (x0 + cw + 22, y0 + skew + 26), (x0 + cw + 22, y0 + ch - skew + 34), (x0 + 14, y0 + ch + 26)], fill=(0, 0, 0, 125))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(30))
     bg = Image.alpha_composite(bg.convert("RGBA"), shadow).convert("RGB")
-    # canto izquierdo (lado del bastidor, más oscuro)
-    edge = int(cw * 0.035)
-    strip = piece.crop((0, 0, edge, ch)).point(lambda v: int(v * 0.55))
-    strip_mask = Image.new("L", (edge, ch), 0); ImageDraw.Draw(strip_mask).polygon([(edge, 0), (edge, ch), (0, ch + 14), (0, 14)], fill=255)
-    bg.paste(strip, (x0 - edge, y0 - 14 + 14), strip_mask)
+    # canto izquierdo: la imagen continúa envuelta (franja espejada) y más oscura
+    strip = ImageOps.mirror(piece.crop((0, 0, edge * 2, ch))).resize((edge, ch)).point(lambda v: int(v * 0.5))
+    strip_mask = Image.new("L", (edge, ch), 0); ImageDraw.Draw(strip_mask).polygon([(edge, 0), (edge, ch), (0, ch + int(edge * 0.4)), (0, int(edge * 0.4))], fill=255)
+    bg.paste(strip, (x0 - edge, y0 - int(edge * 0.4)), strip_mask)
     bg.paste(warped, (x0, y0), mask)
     # móvil
     d = ImageDraw.Draw(bg)

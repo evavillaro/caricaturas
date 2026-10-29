@@ -204,6 +204,26 @@ async def admin_generate_images(token: str = "", limit: int = 10, before_after: 
     return {"generated": done, "errors": errors, "remaining_hint": "repite la llamada hasta que generated venga vacío"}
 
 
+@app.post("/admin/make-template")
+async def admin_make_template(token: str = ""):
+    """Genera con IA la plantilla fotorrealista (lienzo verde + móvil azul), detecta la geometría y la guarda en Supabase."""
+    _admin(token)
+    tpl = await imaging.generate_template()
+    geo = imaging.detect_template(tpl)
+    buf = io.BytesIO(); tpl.save(buf, format="PNG")
+    await catalog.upload_image("_template/template.png", buf.getvalue(), "image/png")
+    import json as _json
+    await catalog.upload_image("_template/geometry.json", _json.dumps(geo).encode(), "application/json")
+    imaging._TPL_CACHE.clear()
+    # vista previa con una imagen cualquiera
+    sample = Image.new("RGB", (900, 1200), (210, 140, 90)); ImageDraw_ = __import__("PIL.ImageDraw", fromlist=["ImageDraw"]).ImageDraw
+    photo = Image.new("RGB", (600, 600), (90, 140, 200))
+    prev = imaging.compose_with_template(tpl, geo, sample, photo)
+    pb = io.BytesIO(); prev.save(pb, format="JPEG", quality=85)
+    url = await catalog.upload_image("_template/preview.jpg", pb.getvalue())
+    return {"geometry": geo, "preview": url + f"?t={int(asyncio.get_event_loop().time())}", "template": url.replace("preview.jpg", "template.png")}
+
+
 @app.post("/admin/dedupe-titles")
 async def admin_dedupe(token: str = ""):
     _admin(token)

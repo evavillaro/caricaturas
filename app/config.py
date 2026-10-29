@@ -49,12 +49,15 @@ IMAGE_SIZE = env("IMAGE_SIZE", "1152x1536")  # vertical 3:4, la proporción del 
 IMAGE_QUALITY = env("IMAGE_QUALITY", "high")  # low, medium, high, xhigh, max
 STYLE_PROMPT = env(
     "STYLE_PROMPT",
-    "Convierte a las personas de esta foto en una caricatura ilustrada de estilo "
-    "cartoon moderno: cabeza grande, cuerpo pequeño, rasgos exagerados pero muy "
-    "reconocibles (misma forma de cara, peinado, gafas, barba, sonrisa, color de "
-    "piel, ojos y pelo). Expresión alegre. Trazo limpio, colores planos y vivos, "
-    "sombreado suave. Fondo liso de un solo color pastel. Sin texto, sin marca de "
-    "agua, sin marco. Composición centrada, apta para imprimir en lienzo vertical.",
+    "Crea una CARICATURA clásica de cabeza grande a partir de la persona de la foto, en estilo "
+    "ilustración digital pintada semirrealista (como las caricaturas de regalo personalizadas): "
+    "CABEZA ENORME, aproximadamente un tercio de la altura total de la figura, sobre un CUERPO "
+    "PEQUEÑO y estilizado de cuerpo entero. La cara debe ser MUY fiel a la foto (misma forma de "
+    "cara, ojos, nariz, boca, sonrisa, peinado, color de pelo y piel, gafas o barba si las tiene), "
+    "con los rasgos ligeramente exagerados con humor (sonrisa amplia, ojos expresivos). Sombreado "
+    "pintado suave, colores cálidos y vivos, acabado brillante y detallado. La figura ocupa el "
+    "centro de una escena completa y detallada. Sin texto (salvo un número de edad si la escena lo "
+    "pide), sin marca de agua, sin marco. Composición vertical para imprimir en lienzo.",
 )
 
 # --- Pago -----------------------------------------------------------------------

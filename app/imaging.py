@@ -125,15 +125,24 @@ def compose_main(art: Image.Image, photo: Image.Image, label: str = "tu foto") -
     mask = Image.new("L", inner.size, 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, inner.width - 1, inner.height - 1], radius=int(pw * 0.10), fill=255)
     bg.paste(inner, (px + 9, py + 9), mask)
     d.rounded_rectangle([px + pw * 0.38, py + 4, px + pw * 0.62, py + 10], radius=3, fill=(70, 70, 70))
-    # texto y flecha
-    font = _font(int(W * 0.045))
-    tx, ty = px - int(W * 0.02), int(H * 0.30)
-    d.text((tx, ty), label, fill=(40, 40, 40), font=font)
-    ax0, ay0 = tx + int(W * 0.04), ty + int(H * 0.065)
-    ax1, ay1 = x + cw + int(W * 0.03), int(H * 0.42)
-    mid = ((ax0 + ax1) // 2, ay0 + int(H * 0.03))
-    d.line([(ax0, ay0), mid, (ax1, ay1)], fill=(40, 40, 40), width=5, joint="curve")
-    d.polygon([(ax1 - int(W * 0.012), ay1 - int(H * 0.018)), (ax1 - int(W * 0.004), ay1 + int(H * 0.018)), (ax1 - int(W * 0.03), ay1 + int(H * 0.004))], fill=(40, 40, 40))
+    # texto sobre el móvil; flecha curva grande que sale del móvil y apunta al cuadro
+    import math
+    font = _font(int(W * 0.05))
+    tw = d.textlength(label, font=font)
+    tx, ty = px + int(pw * 0.42), py - int(H * 0.085)  # a la derecha del arranque de la flecha
+    if tx + tw > W - 10: tx = W - 10 - int(tw)
+    d.text((tx, ty), label, fill=(30, 30, 30), font=font)
+    sx, sy = px + int(pw * 0.15), py - int(H * 0.02)           # sale del borde superior izquierdo del móvil
+    ex, ey = x + cw + int(W * 0.02), int(H * 0.40)             # apunta al cuadro, a media altura
+    cx_, cy_ = int((sx + ex) / 2) + int(W * 0.06), ey - int(H * 0.20)  # control arriba: arco que sube y entra en el cuadro
+    pts = []
+    for i in range(41):
+        t = i / 40
+        pts.append(((1 - t) ** 2 * sx + 2 * (1 - t) * t * cx_ + t ** 2 * ex, (1 - t) ** 2 * sy + 2 * (1 - t) * t * cy_ + t ** 2 * ey))
+    d.line(pts, fill=(30, 30, 30), width=6, joint="curve")
+    ang = math.atan2(ey - pts[-4][1], ex - pts[-4][0])
+    L = int(W * 0.035)
+    d.polygon([(ex, ey), (ex - L * math.cos(ang - 0.5), ey - L * math.sin(ang - 0.5)), (ex - L * math.cos(ang + 0.5), ey - L * math.sin(ang + 0.5))], fill=(30, 30, 30))
     return bg
 
 

@@ -546,6 +546,18 @@ async def _thumbs_job(force: bool):
         THUMBS["running"] = False
 
 
+@app.on_event("startup")
+async def _thumbs_on_start():
+    """Al arrancar, si alguna foto no tiene su versión ligera, la crea en segundo plano."""
+    async def go():
+        try:
+            if db.ENABLED and any(not i.get("thumb") for p in await db.products(force=True) for i in (p.get("images") or [])):
+                await _thumbs_job(False)
+        except Exception:
+            log.exception("thumbs al arrancar")
+    asyncio.create_task(go())
+
+
 @app.post("/admin/thumbs")
 async def admin_thumbs(token: str = "", force: bool = False):
     """Crea en segundo plano las versiones ligeras (WebP) de todas las fotos existentes."""

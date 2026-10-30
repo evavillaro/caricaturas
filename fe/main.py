@@ -101,9 +101,10 @@ def ctx(request: Request, **kw) -> dict:
 
 def card(p: dict) -> dict:
     imgs = p.get("images") or []
-    main = next((i["url"] for i in imgs if i.get("kind") == "main"), None)
-    room = next((i["url"] for i in imgs if i.get("kind") == "room"), None)
-    return {**p, "img": main, "img2": room, "from_price": config.min_price(p["kind"])}
+    mi = next((i for i in imgs if i.get("kind") == "main"), None)
+    ro = next((i for i in imgs if i.get("kind") == "room"), None)
+    sm = lambda i: (i.get("thumb") or i["url"]) if i else None
+    return {**p, "img": sm(mi), "img2": sm(ro), "img_full": mi["url"] if mi else None, "img2_md": (ro.get("md") or ro["url"]) if ro else None, "from_price": config.min_price(p["kind"])}
 
 
 async def reviews_for(slug: str | None = None, limit: int = 30) -> list[dict]:
@@ -124,9 +125,10 @@ async def reviews_for(slug: str | None = None, limit: int = 30) -> list[dict]:
 async def home(request: Request):
     prods = await db.products()
     best = [card(p) for p in prods if p.get("bestseller")][:20]
-    hero = next((i["url"] for p in prods if p.get("bestseller") for i in (p.get("images") or []) if i.get("kind") == "room"), None)
+    hero_i = next((i for p in prods if p.get("bestseller") for i in (p.get("images") or []) if i.get("kind") == "room"), None)
+    hero = (hero_i.get("md") or hero_i["url"]) if hero_i else None
     revs = await reviews_for(limit=20)
-    return T.TemplateResponse(request, "home.html", ctx(request, best=best, hero=hero, reviews=revs, title=f"{config.BRAND} · {config.TAGLINE} · Cuadros religiosos modernos", og_image=hero,
+    return T.TemplateResponse(request, "home.html", ctx(request, best=best, hero=hero, reviews=revs, title=f"{config.BRAND} · {config.TAGLINE} · Cuadros religiosos modernos", og_image=hero_i["url"] if hero_i else None,
                                                  description="Cuadros religiosos modernos en lienzo y láminas enmarcadas: arte cristiano y católico en tonos neutros para casas modernas. Envío gratis."))
 
 
@@ -142,7 +144,7 @@ async def collection(request: Request, slug: str, orden: str = ""):
                 "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": f"{config.BASE_URL}/cuadro/{p['slug']}", "name": p["title"]} for i, p in enumerate(prods)]})
     desc = f"{c['h1']}: {c['intro']} {len(prods)} diseños en lienzo y lámina enmarcada, desde {min((p['from_price'] for p in prods), default=0)} €. Envío gratis a la Península y Baleares."
     return T.TemplateResponse(request, "collection.html", ctx(request, c=c, products=prods, title=f"{c['h1']} · {config.BRAND}", description=desc[:300],
-                                                       og_image=prods[0]["img2"] or prods[0]["img"] if prods else None,
+                                                       og_image=next((i["url"] for i in (prods[0].get("images") or []) if i.get("kind") == "room"), prods[0]["img_full"]) if prods else None,
                                                        extra_jsonld=[items, crumbs((c["title"], f"/coleccion/{slug}"))]))
 
 
@@ -189,7 +191,7 @@ async def product_page(request: Request, slug: str):
         extra.append(faq_ld([(f["q"], f["a"]) for f in c["faq"] if f.get("q") and f.get("a")]))
     return T.TemplateResponse(request, "product.html", ctx(request, extra_jsonld=extra, og_type="product", p=p, sizes=sizes, frames=frames, prices=json.dumps(prices), c=c, related=related, reviews=revs,
                                                     title=f"{p['title']} · Cuadro religioso moderno · {config.BRAND}", description=(c.get("intro") or "")[:155],
-                                                    og_image=p.get("img")))
+                                                    og_image=p.get("img_full")))
 
 
 @app.get("/carrito", response_class=HTMLResponse)
@@ -499,6 +501,66 @@ def _png(img) -> bytes:
     b = io.BytesIO(); img.save(b, format="PNG"); return b.getvalue()
 
 
+THUMB_W, MD_W = 600, 1200
+
+
+async def _web_versions(slug: str, name: str, img: Image.Image, v) -> tuple[str, str]:
+    """Sube la miniatura (600 px) y la versión de galería (1200 px) en WebP."""
+    th = await db.upload(f"{slug}/web/{name}-{THUMB_W}.webp", await asyncio.to_thread(art.webp, img, THUMB_W, 78), "image/webp")
+    md = await db.upload(f"{slug}/web/{name}-{MD_W}.webp", await asyncio.to_thread(art.webp, img, MD_W, 82), "image/webp")
+    return f"{th}?v={v}", f"{md}?v={v}"
+
+
+THUMBS = {"running": False, "done": 0, "total": 0, "errors": []}
+
+
+async def _thumbs_job(force: bool):
+    THUMBS.update(running=True, done=0, errors=[])
+    try:
+        prods = [p for p in await db.products(force=True) if p.get("images")]
+        THUMBS["total"] = len(prods)
+        sem = asyncio.Semaphore(4)
+
+        async def one(im: dict, slug: str):
+            if im.get("thumb") and im.get("md") and not force:
+                return im
+            async with sem:
+                base = im["url"].split("?")[0]
+                name = base.rsplit("/", 1)[1].rsplit(".", 1)[0]
+                v = im["url"].split("v=")[1] if "v=" in im["url"] else int(time.time())
+                img = Image.open(io.BytesIO(await db.download(base))).convert("RGB")
+                th, md = await _web_versions(slug, name, img, v)
+                return {**im, "thumb": th, "md": md}
+
+        for p in prods:
+            try:
+                imgs = await asyncio.gather(*(one(dict(i), p["slug"]) for i in p["images"]))
+                if imgs != p["images"]:
+                    await db.patch("fe_products", "slug", p["slug"], {"images": list(imgs)})
+            except Exception as e:
+                log.exception("thumbs %s", p["slug"])
+                THUMBS["errors"].append(f"{p['slug']}: {str(e)[:150]}")
+            THUMBS["done"] += 1
+        db.invalidate()
+    finally:
+        THUMBS["running"] = False
+
+
+@app.post("/admin/thumbs")
+async def admin_thumbs(token: str = "", force: bool = False):
+    """Crea en segundo plano las versiones ligeras (WebP) de todas las fotos existentes."""
+    _auth(token)
+    if not THUMBS["running"]:
+        asyncio.create_task(_thumbs_job(force))
+    return THUMBS
+
+
+@app.get("/admin/thumbs")
+async def admin_thumbs_status(token: str = ""):
+    _auth(token)
+    return THUMBS
+
+
 async def build_images(p: dict, a: Image.Image, rooms: dict) -> list[dict]:
     """Todas las fotos de la ficha, en el orden de la referencia."""
     slug = p["slug"]; kind = p["kind"]; o = p["orient"]
@@ -507,7 +569,8 @@ async def build_images(p: dict, a: Image.Image, rooms: dict) -> list[dict]:
 
     async def up(name, img, kindtag, frame=None):
         url = await db.upload(f"{slug}/{name}.jpg", art.jpeg(img, 85, 1800))
-        out.append({"url": f"{url}?v={t}", "kind": kindtag, **({"frame": frame} if frame else {})})
+        th, md = await _web_versions(slug, name, img, t)
+        out.append({"url": f"{url}?v={t}", "thumb": th, "md": md, "kind": kindtag, **({"frame": frame} if frame else {})})
 
     main_frame = "natural"
     await up("main", await asyncio.to_thread(art.on_wall, a, main_frame, kind), "main", main_frame)

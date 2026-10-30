@@ -2,9 +2,9 @@
 {% block main %}
 <section class="pdp">
   <div class="gallery">
-    <div class="g-main">{% if p.images %}<img id="gMain" src="{{ p.images[0].url }}" alt="{{ p.title }}">{% else %}<div class="ph big">{{ p.title }}</div>{% endif %}</div>
+    <div class="g-main">{% if p.images %}<img id="gMain" src="{{ p.images[0].md or p.images[0].url }}" alt="{{ p.title }}">{% else %}<div class="ph big">{{ p.title }}</div>{% endif %}</div>
     <div class="g-thumbs">
-      {% for im in p.images %}<button class="thumb{% if loop.first %} on{% endif %}" data-src="{{ im.url }}" data-frame="{{ im.frame or '' }}" data-kind="{{ im.kind }}"><img src="{{ im.url }}" alt="{{ p.title }} — foto {{ loop.index }}" loading="lazy"></button>{% endfor %}
+      {% for im in p.images %}<button class="thumb{% if loop.first %} on{% endif %}" data-src="{{ im.md or im.url }}" data-frame="{{ im.frame or '' }}" data-kind="{{ im.kind }}"><img src="{{ im.thumb or im.url }}" alt="{{ p.title }} — foto {{ loop.index }}" loading="lazy"></button>{% endfor %}
     </div>
   </div>
   <div class="buy">

@@ -392,6 +392,14 @@ def print_file(art: Image.Image, kind: str, size_key: str, frame: str) -> bytes:
     return buf.getvalue()
 
 
+def webp(img: Image.Image, width: int, q: int = 80) -> bytes:
+    """Versión ligera para la web (miniaturas y galería)."""
+    if img.width > width:
+        img = img.resize((width, round(img.height * width / img.width)), Image.LANCZOS)
+    buf = io.BytesIO(); img.convert("RGB").save(buf, format="WEBP", quality=q, method=6)
+    return buf.getvalue()
+
+
 def jpeg(img: Image.Image, q: int = 86, max_side: int | None = None) -> bytes:
     if max_side:
         img = ImageOps.contain(img, (max_side, max_side), Image.LANCZOS)

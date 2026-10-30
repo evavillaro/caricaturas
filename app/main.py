@@ -15,6 +15,7 @@ import asyncio
 import json
 import io
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -54,6 +55,77 @@ def _eur(cents: int) -> str:
     return f"{cents/100:.2f}".replace(".", ",") + " €"
 
 
+def _ld(obj) -> str:
+    return '<script type="application/ld+json">' + json.dumps(obj, ensure_ascii=False).replace("</", "<\\/") + "</script>"
+
+
+HOME_DESC = "Caricatura a partir de una foto: elige el diseño, sube la foto, mira el resultado antes de pagar y recíbela en lienzo o póster. Envío gratis."
+
+
+def _site_ld() -> str:
+    B = config.BASE_URL
+    org = {"@type": "Organization", "@id": f"{B}/#org", "name": config.BRAND_NAME, "url": f"{B}/", "logo": f"{B}/static/icon-512.png",
+           "email": config.CONTACT_EMAIL, "legalName": "Comartinvi S.L.", "areaServed": "ES",
+           "description": "Caricaturas personalizadas a partir de una foto, impresas en lienzo o póster o en archivo digital. Ves el diseño antes de pagar."}
+    web = {"@type": "WebSite", "@id": f"{B}/#web", "name": config.BRAND_NAME, "url": f"{B}/", "inLanguage": "es-ES", "publisher": {"@id": f"{B}/#org"}}
+    return _ld({"@context": "https://schema.org", "@graph": [org, web]})
+
+
+def _crumbs(*items) -> str:
+    els = [{"@type": "ListItem", "position": i + 1, "name": n, "item": f"{config.BASE_URL}{u}"} for i, (n, u) in enumerate((("Inicio", "/"),) + items)]
+    return _ld({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": els})
+
+
+def _seo_head(path: str, title: str, desc: str, image: str = "", og_type: str = "website") -> str:
+    import html as _h
+    e = lambda x: _h.escape(x or "", quote=True)
+    url = f"{config.BASE_URL}{path}"
+    out = (f'<link rel="canonical" href="{e(url)}"><meta name="robots" content="index, follow, max-image-preview:large">'
+           f'<meta property="og:site_name" content="{e(config.BRAND_NAME)}"><meta property="og:locale" content="es_ES"><meta property="og:type" content="{og_type}">'
+           f'<meta property="og:url" content="{e(url)}"><meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">'
+           f'<meta name="twitter:card" content="summary_large_image">'
+           f'<link rel="alternate" type="text/plain" href="/llms.txt" title="Resumen de la tienda para asistentes de IA">')
+    if image:
+        out += f'<meta property="og:image" content="{e(image)}"><meta name="twitter:image" content="{e(image)}">'
+    return out + _site_ld()
+
+
+GROUP_COL = {"ella": "regalo-para-mujer", "el": "regalo-para-hombre", "pareja": "boda"}
+
+
+def _ssr_catalog(prods: list[dict], cols: list[dict], cat: str = "") -> tuple[str, str]:
+    """Mismo HTML que pinta el JS (nav + rejilla), para que buscadores e IAs vean los diseños sin ejecutar JavaScript."""
+    import html as _h
+    e = lambda x: _h.escape(x or "", quote=True)
+    base = config.PRICE_CANVAS_20x30_CENTS
+    before = round(base / (1 - config.DISCOUNT_PCT / 100)) if config.DISCOUNT_PCT else base
+    nav = "".join(f'<a href="/regalos/{c["slug"]}">{e(c["title"])}</a>' for c in cols if c["slug"] != "todas")
+    items = [p for p in prods if not cat or cat == "todas" or cat in (p.get("collections") or []) or (cat == "bestsellers" and p.get("bestseller"))]
+    MAX = 1000 if cat else 12
+    out = []
+    for g, gname in scenes.GROUPS:
+        its = [p for p in items if (p.get("group") or "el") == g]
+        if not its:
+            continue
+        cards = "".join(
+            f'<a class="card" href="/p/{p["slug"]}"><div class="card-img"><span class="badge">-{config.DISCOUNT_PCT}%</span>'
+            + (f'<img src="{e(p["image_url"])}" alt="{e(p["title"])}" loading="lazy">' if p.get("image_url") else f'<span class="card-title">{e(p["title"])}</span>')
+            + f'</div><h3>{e(p["title"])}</h3><p>{e(p.get("short_desc"))}</p><p class="card-price"><s>{_eur(before)}</s> <b>desde {_eur(base)}</b></p></a>'
+            for p in its[:MAX])
+        more = f'<p class="more"><a class="btn btn-ghost" href="/coleccion/{GROUP_COL.get(g, "familia")}">Ver los {len(its)} diseños →</a></p>' if len(its) > MAX else ""
+        out.append(f'<h3 class="group-title">{e(gname)}: <small>{len(its)} diseños</small></h3><div class="grid">{cards}</div>{more}')
+    return nav, "".join(out)
+
+
+def _faq_ld(html: str) -> str:
+    strip = lambda x: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
+    pairs = re.findall(r"<details><summary>(.*?)</summary><p>(.*?)</p></details>", html, re.S)
+    if not pairs:
+        return ""
+    return _ld({"@context": "https://schema.org", "@type": "FAQPage",
+                "mainEntity": [{"@type": "Question", "name": strip(q), "acceptedAnswer": {"@type": "Answer", "text": strip(a)}} for q, a in pairs]})
+
+
 def _page(name: str, **extra: str) -> HTMLResponse:
     html = (STATIC / name).read_text(encoding="utf-8")
     base = config.PRICE_CANVAS_20x30_CENTS
@@ -79,11 +151,14 @@ def _page(name: str, **extra: str) -> HTMLResponse:
         "PAGE_TITLE": f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo",
         "H1": "Caricatura personalizada a partir de una foto",
         "INTRO": "Tu idea. Tu foto. Un regalo personal. Elige la escena, sube la foto y mira tu caricatura antes de pagar.",
-        "HEAD_EXTRA": f'<link rel="canonical" href="{config.BASE_URL}/">',
+        "HEAD_EXTRA": _seo_head("/", f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo", HOME_DESC),
+        "META_DESC": HOME_DESC, "SSR_NAV": "", "SSR_GRID": "", "SCENE_DESC_ATTR": "",
     }
     repl.update(extra)
     for k, v in repl.items():
         html = html.replace("{{" + k + "}}", v)
+    if name == "index.html":
+        html = html.replace("</head>", _faq_ld(html) + "</head>", 1)
     return HTMLResponse(html)
 
 
@@ -103,17 +178,32 @@ async def canonical_host(request: Request, call_next):
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    return _page("index.html")
+    prods, cols = await catalog.get_catalog()
+    nav, grid = _ssr_catalog(prods, cols)
+    img = next((p["image_url"] for p in prods if p.get("bestseller") and p.get("image_url")), "")
+    head = _seo_head("/", f"{config.BRAND_NAME} · Caricatura personalizada desde una foto, en lienzo", HOME_DESC, img)
+    return _page("index.html", SSR_NAV=nav, SSR_GRID=grid, HEAD_EXTRA=head)
 
 
 @app.get("/regalos/{category}", response_class=HTMLResponse)
 @app.get("/coleccion/{category}", response_class=HTMLResponse)
 async def category_page(category: str):
-    _, cols = await catalog.get_catalog()
+    prods, cols = await catalog.get_catalog()
     cat = next((c for c in cols if c["slug"] == category), None)
     if not cat:
         raise HTTPException(404)
-    return _page("index.html", CATEGORY=category, HEAD_EXTRA=f'<link rel="canonical" href="{config.BASE_URL}/coleccion/{category}">', PAGE_TITLE=f"{cat['h1'] or cat['title']} · {config.BRAND_NAME}", H1=cat["h1"] or cat["title"], INTRO=cat.get("intro") or "")
+    import html as _h
+    nav, grid = _ssr_catalog(prods, cols, category)
+    items = [p for p in prods if category == "todas" or category in (p.get("collections") or []) or (category == "bestsellers" and p.get("bestseller"))]
+    h1 = cat["h1"] or cat["title"]
+    title = f"{h1} · {config.BRAND_NAME}"
+    desc = f"{h1}: {cat.get('intro') or ''} {len(items)} diseños. Sube tu foto, ves la caricatura antes de pagar y la recibes en lienzo o póster. Envío gratis.".replace("  ", " ")[:300]
+    path = f"/coleccion/{category}"
+    il = _ld({"@context": "https://schema.org", "@type": "ItemList", "name": h1, "numberOfItems": len(items),
+              "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": f"{config.BASE_URL}/p/{p['slug']}", "name": p["title"]} for i, p in enumerate(items)]})
+    head = _seo_head(path, title, desc, next((p["image_url"] for p in items if p.get("image_url")), "")) + il + _crumbs((cat["title"], path))
+    return _page("index.html", CATEGORY=category, HEAD_EXTRA=head, PAGE_TITLE=title, H1=h1, INTRO=cat.get("intro") or "",
+                 META_DESC=_h.escape(desc, quote=True), SSR_NAV=nav, SSR_GRID=grid)
 
 
 @app.get("/p/{slug}", response_class=HTMLResponse)
@@ -123,13 +213,26 @@ async def product_page(slug: str):
         raise HTTPException(404)
     import html as _h
     url = f"{config.BASE_URL}/p/{s['slug']}"
-    ld = json.dumps({"@context": "https://schema.org", "@type": "Product", "name": s["title"], "description": s.get("short_desc") or "",
-                     "image": (s.get("images") or [s.get("image_url")])[:6], "brand": {"@type": "Brand", "name": config.BRAND_NAME}, "sku": s["slug"],
-                     "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": config.PRICE_DIGITAL_CENTS / 100,
-                                "highPrice": max(v["cents"] for v in fulfilment.PRODUCTS.values()) / 100, "availability": "https://schema.org/InStock", "url": url}},
-                    ensure_ascii=False).replace("</", "<\\/")
-    head = f'<link rel="canonical" href="{url}"><meta property="og:title" content="{_h.escape(s["title"])}"><meta property="og:image" content="{_h.escape(s.get("image_url") or "")}"><script type="application/ld+json">{ld}</script>'
-    return _page("producto.html", HEAD_EXTRA=head, SCENE_ID=s["slug"], SCENE_NAME=s["title"], SCENE_DESC=s.get("short_desc") or "", SCENE_HTML=s.get("description_html") or "", PAGE_TITLE=f"{s['title']} · {config.BRAND_NAME}")
+    plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s.get("description_html") or "")).strip()
+    shipping = {"@type": "OfferShippingDetails", "shippingRate": {"@type": "MonetaryAmount", "value": 0, "currency": "EUR"},
+                "shippingDestination": {"@type": "DefinedRegion", "addressCountry": "ES"},
+                "deliveryTime": {"@type": "ShippingDeliveryTime", "handlingTime": {"@type": "QuantitativeValue", "minValue": 1, "maxValue": 2, "unitCode": "DAY"},
+                                 "transitTime": {"@type": "QuantitativeValue", "minValue": 2, "maxValue": 4, "unitCode": "DAY"}}}
+    returns = {"@type": "MerchantReturnPolicy", "applicableCountry": "ES", "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+               "merchantReturnLink": f"{config.BASE_URL}/static/legal.html"}
+    prod = {"@context": "https://schema.org", "@type": "Product", "@id": f"{url}#product", "name": s["title"], "description": plain or s.get("short_desc") or "",
+            "image": (s.get("images") or [s.get("image_url")])[:6], "brand": {"@type": "Brand", "name": config.BRAND_NAME}, "sku": s["slug"], "url": url,
+            "category": "Hogar y jardín > Decoración > Arte > Cuadros", "inLanguage": "es-ES",
+            "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": config.PRICE_DIGITAL_CENTS / 100,
+                       "highPrice": max(v["cents"] for v in fulfilment.PRODUCTS.values()) / 100, "offerCount": len(fulfilment.product_list()),
+                       "availability": "https://schema.org/InStock", "itemCondition": "https://schema.org/NewCondition", "url": url,
+                       "seller": {"@id": f"{config.BASE_URL}/#org"}, "shippingDetails": shipping, "hasMerchantReturnPolicy": returns}}
+    _, cols = await catalog.get_catalog()
+    col = next((c for c in cols if c["slug"] in (s.get("collections") or []) and c["slug"] not in ("todas", "bestsellers")), None)
+    crumbs = [(col["title"], f"/coleccion/{col['slug']}")] if col else []
+    desc = f"{s.get('short_desc') or ''} Caricatura personalizada a partir de tu foto, en lienzo, póster o archivo. Ves el diseño antes de pagar. Envío gratis."
+    head = _seo_head(f"/p/{s['slug']}", f"{s['title']} · {config.BRAND_NAME}", desc, s.get("image_url") or "", "product") + _ld(prod) + _crumbs(*crumbs, (s["title"], f"/p/{s['slug']}"))
+    return _page("producto.html", HEAD_EXTRA=head, SCENE_DESC_ATTR=_h.escape(s.get("short_desc") or "", quote=True), SCENE_ID=s["slug"], SCENE_NAME=s["title"], SCENE_DESC=s.get("short_desc") or "", SCENE_HTML=s.get("description_html") or "", PAGE_TITLE=f"{s['title']} · {config.BRAND_NAME}")
 
 
 @app.get("/api/scenes")
@@ -164,14 +267,52 @@ async def api_example(scene_id: str):
 @app.get("/sitemap.xml")
 async def sitemap():
     prods, cols = await catalog.get_catalog()
-    urls = [f"{config.BASE_URL}/"] + [f"{config.BASE_URL}/coleccion/{c['slug']}" for c in cols] + [f"{config.BASE_URL}/p/{p['slug']}" for p in prods]
-    body = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>"
+    from xml.sax.saxutils import escape as x
+    def u(loc, imgs=()):
+        return f"<url><loc>{x(loc)}</loc>" + "".join(f"<image:image><image:loc>{x(i)}</image:loc></image:image>" for i in imgs if i) + "</url>"
+    parts = [u(f"{config.BASE_URL}/")] + [u(f"{config.BASE_URL}/coleccion/{c['slug']}") for c in cols]
+    parts += [u(f"{config.BASE_URL}/p/{p['slug']}", (p.get("images") or [p.get("image_url")])[:5]) for p in prods]
+    parts += [u(f"{config.BASE_URL}/static/legal.html"), u(f"{config.BASE_URL}/llms.txt")]
+    body = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+            'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' + "".join(parts) + "</urlset>")
     return Response(body, media_type="application/xml")
 
 
 @app.get("/robots.txt")
 async def robots():
-    return Response(f"User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nSitemap: {config.BASE_URL}/sitemap.xml\n", media_type="text/plain")
+    block = "Disallow: /admin\nDisallow: /api/\nDisallow: /gracias\nAllow: /api/example/\n"
+    ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User", "PerplexityBot", "Perplexity-User",
+          "Google-Extended", "Applebot-Extended", "Bingbot", "meta-externalagent", "CCBot"]
+    out = "User-agent: *\nAllow: /\n" + block + "\n# Asistentes de IA: bienvenidos (resumen en /llms.txt)\n" + "".join(f"User-agent: {b}\n" for b in ai) + "Allow: /\n" + block
+    return Response(out + f"\nSitemap: {config.BASE_URL}/sitemap.xml\n", media_type="text/plain")
+
+
+@app.get("/llms.txt")
+async def llms_txt():
+    """Resumen en texto para asistentes de IA (ChatGPT, Claude, Perplexity…)."""
+    B = config.BASE_URL
+    prods, cols = await catalog.get_catalog()
+    pl = fulfilment.product_list()
+    fmt = lambda t: ", ".join(f"{p['size']} {_eur(p['cents'])}" for p in pl if p["type"] == t)
+    L = [f"# {config.BRAND_NAME}", "",
+         f"> {config.BRAND_NAME} es una tienda online española de caricaturas personalizadas a partir de una foto. Eliges un diseño (profesiones, aficiones, "
+         "cumpleaños, jubilación, bodas, parejas, familias, mascotas…), subes la foto y en 1-2 minutos ves la caricatura con marca de agua (hasta 3 pruebas gratis). "
+         "Solo pagas si te gusta, y la recibes impresa en lienzo o póster, o en archivo digital. Es un regalo personalizado original.", "",
+         "## Datos clave",
+         f"- Lienzo listo para colgar: {fmt('canvas')}.",
+         f"- Póster sin marco: {fmt('poster')}.",
+         f"- Archivo digital en alta resolución: {_eur(config.PRICE_DIGITAL_CENTS)}.",
+         "- Precios con IVA. Envío gratis en España; se imprime en 24-48 h laborables y llega en 2-4 días laborables.",
+         "- Se puede añadir un nombre, una fecha o una dedicatoria. Varias personas en fotos distintas: bajo consulta.",
+         "- Garantía: ves el diseño antes de pagar; si al recibirlo no se parece, se rehace una vez gratis con otra foto; si llega dañado, se repone.",
+         "- Pago con tarjeta, Apple Pay o Google Pay (Stripe). Las fotos solo se usan para crear la caricatura.",
+         f"- Contacto: {config.CONTACT_EMAIL}. Empresa: Comartinvi S.L., Barcelona (España).", "",
+         "## Colecciones"]
+    L += [f"- [{c.get('h1') or c['title']}]({B}/coleccion/{c['slug']}): {c.get('intro') or ''}".rstrip(": ") for c in cols]
+    L += ["", "## Diseños"]
+    L += [f"- [{p['title']}]({B}/p/{p['slug']}): {p.get('short_desc') or ''}".rstrip(": ") for p in prods]
+    L += ["", "## Más información", f"- [Preguntas frecuentes]({B}/#faq)", f"- [Envíos, devoluciones y aviso legal]({B}/static/legal.html)"]
+    return Response("\n".join(L) + "\n", media_type="text/plain; charset=utf-8")
 
 
 def _admin(token: str):

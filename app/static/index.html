@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{PAGE_TITLE}}</title>
-<meta name="description" content="Caricatura a partir de una foto: elige el diseño, sube la foto, mira el resultado antes de pagar y recíbela en lienzo o póster. Envío gratis.">
+<meta name="description" content="{{META_DESC}}">
 <link rel="stylesheet" href="/static/style.css">
 <!-- analítica (se activa solo si hay IDs en Render) -->
 <script>
@@ -26,7 +26,7 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
 <div class="promo">-{{DISCOUNT}} % de lanzamiento · Envío gratis por mensajería · Ves el diseño antes de pagar <span class="phone">{{PHONE}}</span></div>
 <header class="top">
   <a class="logo" href="/">{{BRAND}}</a>
-  <nav id="nav"></nav>
+  <nav id="nav">{{SSR_NAV}}</nav>
 </header>
 
 <main>
@@ -55,7 +55,7 @@ window.__IDS = {ga4: "{{GA4_ID}}", gads: "{{GADS_ID}}", gads_label: "{{GADS_LABE
   <h2>Elige tu caricatura <small id="count"></small></h2>
   <div class="search-box"><input id="q" type="search" placeholder="Busca tu caricatura: médico, futbolista, profesora, boda, moto…" autocomplete="off"></div>
   <div class="filters" id="filters"></div>
-  <div id="groups"></div>
+  <div id="groups">{{SSR_GRID}}</div>
 </section>
 
 <section id="opiniones" class="reviews">

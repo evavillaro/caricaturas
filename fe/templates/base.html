@@ -6,9 +6,19 @@
 <title>{{ title or brand }}</title>
 <meta name="description" content="{{ description or 'Cuadros religiosos modernos: arte cristiano y católico en tonos neutros para casas modernas.' }}">
 <link rel="canonical" href="{{ base_url }}{{ request.url.path }}">
+{% if noindex %}<meta name="robots" content="noindex, follow">{% else %}<meta name="robots" content="index, follow, max-image-preview:large">{% endif %}
+<meta property="og:site_name" content="{{ brand }}">
+<meta property="og:locale" content="es_ES">
+<meta property="og:type" content="{{ og_type or 'website' }}">
+<meta property="og:url" content="{{ base_url }}{{ request.url.path }}">
 <meta property="og:title" content="{{ title or brand }}">
-<meta property="og:description" content="{{ description or '' }}">
-{% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+<meta property="og:description" content="{{ description or 'Cuadros religiosos modernos: arte cristiano y católico en tonos neutros para casas modernas.' }}">
+{% if og_image %}<meta property="og:image" content="{{ og_image }}"><meta name="twitter:image" content="{{ og_image }}">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="Resumen de la tienda para asistentes de IA">
+<script type="application/ld+json">{{ site_jsonld|safe }}</script>
+{% for j in extra_jsonld or [] %}<script type="application/ld+json">{{ j|safe }}</script>
+{% endfor %}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=EB+Garamond:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/fe.css?v=1">

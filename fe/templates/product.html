@@ -4,7 +4,7 @@
   <div class="gallery">
     <div class="g-main">{% if p.images %}<img id="gMain" src="{{ p.images[0].url }}" alt="{{ p.title }}">{% else %}<div class="ph big">{{ p.title }}</div>{% endif %}</div>
     <div class="g-thumbs">
-      {% for im in p.images %}<button class="thumb{% if loop.first %} on{% endif %}" data-src="{{ im.url }}" data-frame="{{ im.frame or '' }}" data-kind="{{ im.kind }}"><img src="{{ im.url }}" alt="" loading="lazy"></button>{% endfor %}
+      {% for im in p.images %}<button class="thumb{% if loop.first %} on{% endif %}" data-src="{{ im.url }}" data-frame="{{ im.frame or '' }}" data-kind="{{ im.kind }}"><img src="{{ im.url }}" alt="{{ p.title }} — foto {{ loop.index }}" loading="lazy"></button>{% endfor %}
     </div>
   </div>
   <div class="buy">
@@ -86,7 +86,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script type="application/ld+json">{{ jsonld|safe }}</script>
+
 <script>
 const P = {slug: {{ p.slug|tojson }}, title: {{ p.title|tojson }}, kind: {{ p.kind|tojson }}, img: {{ (p.img or '')|tojson }}};
 const PRICES = {{ prices|safe }};

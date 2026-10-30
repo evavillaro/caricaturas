@@ -62,10 +62,36 @@ async def canonical_host(request: Request, call_next):
     return await call_next(request)
 
 
+def ld(obj) -> str:
+    """JSON-LD seguro para incrustar en <script>."""
+    return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
+
+
+def site_jsonld() -> str:
+    org = {"@type": "Organization", "@id": f"{config.BASE_URL}/#org", "name": config.BRAND, "url": f"{config.BASE_URL}/",
+           "logo": f"{config.BASE_URL}/static/icon-512.png", "email": config.CONTACT_EMAIL, "legalName": "Comartinvi S.L.",
+           "description": "Tienda online de cuadros religiosos modernos: arte cristiano y católico contemporáneo en lienzo y lámina enmarcada, impreso bajo pedido en España.",
+           "areaServed": ["ES", "EU", "US"], "knowsLanguage": "es"}
+    web = {"@type": "WebSite", "@id": f"{config.BASE_URL}/#web", "name": config.BRAND, "alternateName": f"{config.BRAND} · {config.TAGLINE}",
+           "url": f"{config.BASE_URL}/", "inLanguage": "es-ES", "publisher": {"@id": f"{config.BASE_URL}/#org"}}
+    return ld({"@context": "https://schema.org", "@graph": [org, web]})
+
+
+def crumbs(*items) -> str:
+    """BreadcrumbList: items = (nombre, ruta)."""
+    els = [{"@type": "ListItem", "position": i + 1, "name": n, "item": f"{config.BASE_URL}{u}"} for i, (n, u) in enumerate((("Inicio", "/"),) + items)]
+    return ld({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": els})
+
+
+def faq_ld(pairs) -> str:
+    return ld({"@context": "https://schema.org", "@type": "FAQPage",
+               "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in pairs]})
+
+
 def ctx(request: Request, **kw) -> dict:
     base = {
         "request": request, "brand": config.BRAND, "tagline": config.TAGLINE, "menu": MENU, "base_url": config.BASE_URL, "email": config.CONTACT_EMAIL,
-        "discount": config.WELCOME_DISCOUNT_PCT, "year": time.strftime("%Y"),
+        "discount": config.WELCOME_DISCOUNT_PCT, "year": time.strftime("%Y"), "site_jsonld": site_jsonld(),
         "ids": {"ga4": config.GA4_ID, "gads": config.GADS_ID, "gads_label": config.GADS_LABEL, "meta": config.META_PIXEL_ID,
                 "clarity": config.CLARITY_ID, "pinterest": config.PINTEREST_TAG_ID},
     }
@@ -100,7 +126,7 @@ async def home(request: Request):
     best = [card(p) for p in prods if p.get("bestseller")][:20]
     hero = next((i["url"] for p in prods if p.get("bestseller") for i in (p.get("images") or []) if i.get("kind") == "room"), None)
     revs = await reviews_for(limit=20)
-    return T.TemplateResponse(request, "home.html", ctx(request, best=best, hero=hero, reviews=revs, title=f"{config.BRAND} · {config.TAGLINE} · Cuadros religiosos modernos",
+    return T.TemplateResponse(request, "home.html", ctx(request, best=best, hero=hero, reviews=revs, title=f"{config.BRAND} · {config.TAGLINE} · Cuadros religiosos modernos", og_image=hero,
                                                  description="Cuadros religiosos modernos en lienzo y láminas enmarcadas: arte cristiano y católico en tonos neutros para casas modernas. Envío gratis."))
 
 
@@ -112,7 +138,12 @@ async def collection(request: Request, slug: str, orden: str = ""):
     prods = [card(p) for p in await db.products() if slug == "todos" or slug in (p.get("collections") or [])]
     if orden == "precio":
         prods.sort(key=lambda p: p["from_price"])
-    return T.TemplateResponse(request, "collection.html", ctx(request, c=c, products=prods, title=f"{c['h1']} · {config.BRAND}", description=c["intro"]))
+    items = ld({"@context": "https://schema.org", "@type": "ItemList", "name": c["h1"], "numberOfItems": len(prods),
+                "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": f"{config.BASE_URL}/cuadro/{p['slug']}", "name": p["title"]} for i, p in enumerate(prods)]})
+    desc = f"{c['h1']}: {c['intro']} {len(prods)} diseños en lienzo y lámina enmarcada, desde {min((p['from_price'] for p in prods), default=0)} €. Envío gratis a la Península y Baleares."
+    return T.TemplateResponse(request, "collection.html", ctx(request, c=c, products=prods, title=f"{c['h1']} · {config.BRAND}", description=desc[:300],
+                                                       og_image=prods[0]["img2"] or prods[0]["img"] if prods else None,
+                                                       extra_jsonld=[items, crumbs((c["title"], f"/coleccion/{slug}"))]))
 
 
 @app.get("/cuadro/{slug}", response_class=HTMLResponse)
@@ -131,18 +162,39 @@ async def product_page(request: Request, slug: str):
     if len(related) < 3:
         related += [card(x) for x in await db.products() if x.get("bestseller") and x["slug"] != slug and x not in related][: 3 - len(related)]
     revs = await reviews_for(slug)
-    jsonld = json.dumps({"@context": "https://schema.org", "@type": "Product", "name": p["title"], "description": c.get("intro") or "",
-                         "image": [i["url"] for i in (p.get("images") or [])][:6], "brand": {"@type": "Brand", "name": config.BRAND}, "sku": p["slug"],
-                         "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": p["from_price"], "highPrice": max(prices.values()),
-                                    "availability": "https://schema.org/InStock", "url": f"{config.BASE_URL}/cuadro/{p['slug']}"}}, ensure_ascii=False).replace("</", "<\\/")
-    return T.TemplateResponse(request, "product.html", ctx(request, jsonld=jsonld, p=p, sizes=sizes, frames=frames, prices=json.dumps(prices), c=c, related=related, reviews=revs,
+    url = f"{config.BASE_URL}/cuadro/{p['slug']}"
+    shipping = {"@type": "OfferShippingDetails", "shippingRate": {"@type": "MonetaryAmount", "value": 0, "currency": "EUR"},
+                "shippingDestination": {"@type": "DefinedRegion", "addressCountry": "ES"},
+                "deliveryTime": {"@type": "ShippingDeliveryTime", "handlingTime": {"@type": "QuantitativeValue", "minValue": 2, "maxValue": 3, "unitCode": "DAY"},
+                                 "transitTime": {"@type": "QuantitativeValue", "minValue": 3, "maxValue": 5, "unitCode": "DAY"}}}
+    returns = {"@type": "MerchantReturnPolicy", "applicableCountry": "ES", "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+               "merchantReturnDays": 14, "returnMethod": "https://schema.org/ReturnByMail", "returnFees": "https://schema.org/ReturnShippingFees",
+               "merchantReturnLink": f"{config.BASE_URL}/p/devoluciones"}
+    prod = {"@context": "https://schema.org", "@type": "Product", "@id": f"{url}#product", "name": p["title"], "description": c.get("intro") or "",
+            "image": [i["url"] for i in (p.get("images") or [])][:6], "brand": {"@type": "Brand", "name": config.BRAND}, "sku": p["slug"],
+            "category": "Hogar y jardín > Decoración > Arte > Cuadros", "material": "Lienzo" if p["kind"] == "lienzo" else "Papel mate con marco",
+            "url": url, "inLanguage": "es-ES",
+            "additionalProperty": [{"@type": "PropertyValue", "name": k, "value": v} for k, v in
+                                   (("Tema", c.get("subject")), ("Estilo", c.get("style")), ("Paleta", c.get("palette")), ("Versículo", f"{p.get('verse')} ({p.get('verse_ref')})" if p.get("verse") else None)) if v],
+            "offers": {"@type": "AggregateOffer", "priceCurrency": "EUR", "lowPrice": p["from_price"], "highPrice": max(prices.values()), "offerCount": len(prices),
+                       "availability": "https://schema.org/InStock", "itemCondition": "https://schema.org/NewCondition", "url": url,
+                       "seller": {"@id": f"{config.BASE_URL}/#org"}, "shippingDetails": shipping, "hasMerchantReturnPolicy": returns}}
+    if revs:
+        prod["aggregateRating"] = {"@type": "AggregateRating", "ratingValue": round(sum(r.get("rating") or 5 for r in revs) / len(revs), 1), "reviewCount": len(revs)}
+        prod["review"] = [{"@type": "Review", "author": {"@type": "Person", "name": r.get("name") or "Cliente"}, "datePublished": (r.get("created_at") or "")[:10],
+                           "reviewBody": r.get("body") or "", "reviewRating": {"@type": "Rating", "ratingValue": r.get("rating") or 5}} for r in revs[:5]]
+    col = next((COLS[x] for x in (p.get("collections") or []) if x in COLS and COLS[x]["group"] == "Por tema"), COLS.get("todos"))
+    extra = [ld(prod), crumbs((col["title"], f"/coleccion/{col['slug']}"), (p["title"], f"/cuadro/{p['slug']}"))]
+    if c.get("faq"):
+        extra.append(faq_ld([(f["q"], f["a"]) for f in c["faq"] if f.get("q") and f.get("a")]))
+    return T.TemplateResponse(request, "product.html", ctx(request, extra_jsonld=extra, og_type="product", p=p, sizes=sizes, frames=frames, prices=json.dumps(prices), c=c, related=related, reviews=revs,
                                                     title=f"{p['title']} · Cuadro religioso moderno · {config.BRAND}", description=(c.get("intro") or "")[:155],
                                                     og_image=p.get("img")))
 
 
 @app.get("/carrito", response_class=HTMLResponse)
 async def cart_page(request: Request):
-    return T.TemplateResponse(request, "cart.html", ctx(request, title=f"Carrito · {config.BRAND}"))
+    return T.TemplateResponse(request, "cart.html", ctx(request, title=f"Carrito · {config.BRAND}", noindex=True))
 
 
 @app.get("/gracias", response_class=HTMLResponse)
@@ -153,7 +205,7 @@ async def thanks(request: Request, pedido: str = "", session_id: str = ""):
             o = await (shop.confirm(pedido, session_id) if session_id else shop.get_order(pedido))
         except Exception as e:
             log.warning("confirm %s: %s", pedido, e)
-    return T.TemplateResponse(request, "thanks.html", ctx(request, o=o, title=f"Gracias · {config.BRAND}"))
+    return T.TemplateResponse(request, "thanks.html", ctx(request, o=o, title=f"Gracias · {config.BRAND}", noindex=True))
 
 
 @app.get("/encuentra-tu-cuadro", response_class=HTMLResponse)
@@ -161,7 +213,8 @@ async def quiz(request: Request):
     prods = [card(p) for p in await db.products()]
     slim = [{"slug": p["slug"], "title": p["title"], "img": p["img"], "theme": p["theme"], "palette": p["palette"], "orient": p["orient"],
              "collections": p.get("collections") or [], "from_price": p["from_price"], "best": p.get("bestseller")} for p in prods]
-    return T.TemplateResponse(request, "quiz.html", ctx(request, products=json.dumps(slim), title=f"¿Cuál es tu cuadro? · {config.BRAND}"))
+    return T.TemplateResponse(request, "quiz.html", ctx(request, products=json.dumps(slim), title=f"¿Cuál es tu cuadro? · {config.BRAND}",
+                                                 description="Responde 4 preguntas y te recomendamos el cuadro religioso moderno que mejor encaja con tu casa y tu fe."))
 
 
 PAGES = {
@@ -171,11 +224,26 @@ PAGES = {
 }
 
 
+PAGE_DESC = {
+    "preguntas-frecuentes": "Tamaños, marcos, plazos de entrega, envío gratis, devoluciones y pago de los cuadros religiosos de Cuadros con Alma.",
+    "nuestra-historia": "Dos hermanas de Barcelona que no encontraban arte religioso moderno para su casa y decidieron crearlo.",
+    "envios": "Envío gratis a la Península y Baleares en 5-8 días laborables. También enviamos a Europa y Estados Unidos.",
+    "devoluciones": "Derecho de desistimiento de 14 días y reposición sin coste si tu cuadro llega dañado.",
+    "contacto": "Escríbenos para tamaños a medida, dudas sobre tu pedido o cualquier pregunta sobre nuestros cuadros.",
+}
+
+
 @app.get("/p/{page}", response_class=HTMLResponse)
 async def static_page(request: Request, page: str):
     if page not in PAGES:
         raise HTTPException(404)
-    return T.TemplateResponse(request, f"pages/{page}.html", ctx(request, page_title=PAGES[page], title=f"{PAGES[page]} · {config.BRAND}"))
+    extra = [crumbs((PAGES[page], f"/p/{page}"))]
+    if page == "preguntas-frecuentes":
+        html = T.get_template("pages/preguntas-frecuentes.html").render(ctx(request, page_title=PAGES[page]))
+        strip = lambda x: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
+        extra.append(faq_ld([(strip(q), strip(a)) for q, a in re.findall(r'<p class="faq-q">(.*?)</p><p>(.*?)</p>', html, re.S)]))
+    return T.TemplateResponse(request, f"pages/{page}.html", ctx(request, page_title=PAGES[page], title=f"{PAGES[page]} · {config.BRAND}", extra_jsonld=extra,
+                                                                description=PAGE_DESC.get(page)))
 
 
 # --- API ---------------------------------------------------------------------------
@@ -253,15 +321,59 @@ async def print_png(slug: str, size: str, frame: str):
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 async def robots():
-    return f"User-agent: *\nDisallow: /admin\nDisallow: /api\nSitemap: {config.BASE_URL}/sitemap.xml\n"
+    block = "Disallow: /admin\nDisallow: /api/\nDisallow: /carrito\nDisallow: /gracias\n"
+    ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User", "PerplexityBot", "Perplexity-User",
+          "Google-Extended", "Applebot-Extended", "Bingbot", "meta-externalagent", "CCBot"]
+    out = "User-agent: *\nAllow: /\n" + block + "\n"
+    out += "# Asistentes de IA: bienvenidos (resumen en /llms.txt)\n" + "".join(f"User-agent: {b}\n" for b in ai) + "Allow: /\n" + block
+    return out + f"\nSitemap: {config.BASE_URL}/sitemap.xml\n"
 
 
 @app.get("/sitemap.xml")
 async def sitemap():
-    urls = [f"{config.BASE_URL}/"] + [f"{config.BASE_URL}/coleccion/{c}" for c in COLS] + [f"{config.BASE_URL}/cuadro/{p['slug']}" for p in await db.products()]
-    urls += [f"{config.BASE_URL}/p/{k}" for k in PAGES] + [f"{config.BASE_URL}/encuentra-tu-cuadro"]
-    xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(f"<url><loc>{u}</loc></url>" for u in urls) + "</urlset>"
+    from xml.sax.saxutils import escape as x
+    prods = await db.products()
+    last = max(((p.get("updated_at") or "")[:10] for p in prods), default="")
+    def u(loc, mod="", imgs=()):
+        im = "".join(f"<image:image><image:loc>{x(i)}</image:loc></image:image>" for i in imgs)
+        return f"<url><loc>{x(loc)}</loc>{f'<lastmod>{mod}</lastmod>' if mod else ''}{im}</url>"
+    parts = [u(f"{config.BASE_URL}/", last)] + [u(f"{config.BASE_URL}/coleccion/{c}", last) for c in COLS]
+    parts += [u(f"{config.BASE_URL}/cuadro/{p['slug']}", (p.get("updated_at") or "")[:10], [i["url"] for i in (p.get("images") or [])][:5]) for p in prods]
+    parts += [u(f"{config.BASE_URL}/p/{k}") for k in PAGES] + [u(f"{config.BASE_URL}/encuentra-tu-cuadro"), u(f"{config.BASE_URL}/llms.txt", last)]
+    xml = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+           'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' + "".join(parts) + "</urlset>")
     return Response(xml, media_type="application/xml")
+
+
+@app.get("/llms.txt", response_class=PlainTextResponse)
+async def llms_txt():
+    """Resumen en texto para asistentes de IA (ChatGPT, Claude, Perplexity…)."""
+    B = config.BASE_URL
+    prods = await db.products()
+    lines = [f"# {config.BRAND}", "",
+             f"> {config.BRAND} ({config.TAGLINE.lower()}) es una tienda online española de cuadros religiosos modernos: arte cristiano y católico "
+             "contemporáneo en tonos neutros, pensado para casas actuales. Cada diseño es original e incluye un versículo o una oración. "
+             "Se imprime bajo pedido en España y llega montado, listo para colgar.", "",
+             "## Datos clave",
+             f"- Productos: lienzo (sin marco desde {config.min_price('lienzo')} €, o con marco flotante de madera) y lámina enmarcada con metacrilato (desde {config.min_price('lamina')} €). Precios con IVA.",
+             "- Tamaños: lienzo 30x45, 40x60, 50x75 y 60x90 cm; lámina 30x40, 45x60, 50x70 y 60x90 cm. Tamaños a medida bajo consulta.",
+             "- Envío: gratis a la Península y Baleares, entrega en 5-8 días laborables. También envía al resto de Europa y a Estados Unidos.",
+             "- Devoluciones: desistimiento legal de 14 días; si el cuadro llega dañado se repone sin coste.",
+             "- Pago: tarjeta, Apple Pay y Google Pay (Stripe). {config.WELCOME_DISCOUNT_PCT} % de descuento en el primer pedido al suscribirse.",
+             f"- Contacto: {config.CONTACT_EMAIL}. Empresa: Comartinvi S.L., Barcelona (España).",
+             "- Ideal para regalar en: bodas, primera comunión, bautizo, confirmación, inauguración de casa, Navidad, Día de la Madre.", "",
+             "## Colecciones"]
+    lines += [f"- [{c['h1']}]({B}/coleccion/{c['slug']}): {c['intro']}" for c in COLS.values()]
+    lines += ["", "## Cuadros"]
+    for p in prods:
+        c = card(p)
+        v = f" Versículo: «{p['verse']}» ({p.get('verse_ref')})." if p.get("verse") else ""
+        intro = ((p.get("content") or {}).get("intro") or "").strip()
+        lines.append(f"- [{p['title']}]({B}/cuadro/{p['slug']}): desde {c['from_price']} €. {intro[:220]}{v}")
+    lines += ["", "## Más información",
+              f"- [Preguntas frecuentes]({B}/p/preguntas-frecuentes)", f"- [Envíos]({B}/p/envios)", f"- [Devoluciones]({B}/p/devoluciones)",
+              f"- [Nuestra historia]({B}/p/nuestra-historia)", f"- [¿Cuál es tu cuadro? (test)]({B}/encuentra-tu-cuadro)"]
+    return "\n".join(lines) + "\n"
 
 
 # --- reseñas -------------------------------------------------------------------------
